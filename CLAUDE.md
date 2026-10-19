@@ -15,7 +15,7 @@ Bun may not be installed on the host. In that case, run it through Docker: `dock
 - `bun run typecheck` (tsc; JSX resolves to `hono/jsx` through `tsconfig.json`, so the Docker image must copy that file)
 - `bun run import <export.csv> [--force]`: one-shot history import from the Sheet
 - `bun run backup [dest]`: consistent `VACUUM INTO` copy for restic
-- `docker build -t simple-finance .` for a local image. CI (`.github/workflows/docker.yml`) runs typecheck and tests, then publishes multi-arch images to `ghcr.io/fileboss/simple-finance`: `:latest` from `main`, `:X.Y.Z` from `vX.Y.Z` tags. `compose.yaml` is the homelab stack, and it pulls that image.
+- `docker build -t simple-finance .` for a local image. CI (`.github/workflows/docker.yml`) runs typecheck and tests, then publishes **amd64-only** images to `ghcr.io/fileboss/simple-finance`. Git tag `vX.Y.Z` → `:vX.Y.Z` and `:X.Y.Z`, the versions the homelab pins. `main` → `:latest` and `:sha-…`, for dev only, never for deployment.
 
 ## Architecture
 
