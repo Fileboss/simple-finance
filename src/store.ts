@@ -24,24 +24,28 @@ export interface Statement {
   deposits: number | null;
 }
 
-const SCHEMA = [
-  `CREATE TABLE IF NOT EXISTS accounts (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
-    color TEXT NOT NULL,
-    position INTEGER NOT NULL DEFAULT 0,
-    closed INTEGER NOT NULL DEFAULT 0,
-    baseline_month TEXT,
-    baseline_invested INTEGER,
-    baseline_perf REAL
-  )`,
-  `CREATE TABLE IF NOT EXISTS statements (
-    month TEXT NOT NULL,
-    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-    value INTEGER NOT NULL,
-    deposits INTEGER,
-    PRIMARY KEY (month, account_id)
-  )`,
+// Migrations en place, numérotées par PRAGMA user_version : la base reste un seul
+// fichier SQLite (sauvegardé côté hôte). On ajoute des étapes, on ne les modifie jamais.
+const MIGRATIONS: string[][] = [
+  [
+    `CREATE TABLE IF NOT EXISTS accounts (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      color TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      closed INTEGER NOT NULL DEFAULT 0,
+      baseline_month TEXT,
+      baseline_invested INTEGER,
+      baseline_perf REAL
+    )`,
+    `CREATE TABLE IF NOT EXISTS statements (
+      month TEXT NOT NULL,
+      account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      value INTEGER NOT NULL,
+      deposits INTEGER,
+      PRIMARY KEY (month, account_id)
+    )`,
+  ],
 ];
 
 interface AccountRow {
@@ -75,7 +79,11 @@ export class Store {
   constructor(readonly db: Database) {
     db.run("PRAGMA journal_mode = WAL");
     db.run("PRAGMA foreign_keys = ON");
-    for (const sql of SCHEMA) db.run(sql);
+    const { user_version: version } = db.query<{ user_version: number }, []>("PRAGMA user_version").get()!;
+    db.transaction(() => {
+      for (const step of MIGRATIONS.slice(version)) for (const sql of step) db.run(sql);
+      db.run(`PRAGMA user_version = ${MIGRATIONS.length}`);
+    })();
   }
 
   accounts(): Account[] {
@@ -158,11 +166,20 @@ export class Store {
   transaction(fn: () => void): void {
     this.db.transaction(fn)();
   }
+}
 
-  /** Copie cohérente de la base, même pendant que l'app écrit. */
-  backup(path: string): void {
-    mkdirSync(dirname(path), { recursive: true });
-    rmSync(path, { force: true });
-    this.db.query("VACUUM INTO ?").run(path);
+/**
+ * Copie cohérente d'une base existante (outil de dev : la prod est sauvegardée
+ * côté hôte). create: false pour échouer plutôt que de copier une base vide
+ * créée par erreur.
+ */
+export function backupDatabase(source: string, dest: string): void {
+  const db = new Database(source, { create: false, readwrite: true });
+  try {
+    mkdirSync(dirname(dest), { recursive: true });
+    rmSync(dest, { force: true });
+    db.query("VACUUM INTO ?").run(dest);
+  } finally {
+    db.close();
   }
 }

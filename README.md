@@ -133,7 +133,7 @@ Règles à respecter dès le départ :
 - **Montants en centimes entiers**, jamais en flottants. Sinon les arrondis cassent le contrôle « on retombe exactement sur les totaux du Sheet ».
 - **Le serveur fait tous les calculs.** Les données des graphiques sont injectées dans la page en JSON (`<script type="application/json">`) et un petit `static/charts.js` ne fait que de l'affichage.
 - **Aucune requête vers l'extérieur** : toutes les ressources (Chart.js, CSS) sont servies par l'app, qui reste utilisable hors ligne sur le tailnet.
-- **Sauvegarde cohérente** : `VACUUM INTO` vers un fichier, que restic envoie ensuite. On ne copie jamais la base pendant que l'app écrit.
+- **Sauvegarde** : elle est faite côté hôte par le dépôt infra (`sqlite3 .backup`, puis restic). L'app garde la base dans un seul fichier SQLite sous `/data`. Si le schéma évolue, il passe par des migrations en place, jamais par un fichier en plus. `bun run backup <destination>` reste un outil de dev.
 - **Tests sur les calculs** (gain, rendement mensuel, rendement depuis janvier), avec les chiffres du Sheet comme référence.
 
 ## Utilisation

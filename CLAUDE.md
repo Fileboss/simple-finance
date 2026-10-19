@@ -14,7 +14,7 @@ Bun may not be installed on the host. In that case, run it through Docker: `dock
 - `bun test`, `bun test test/calc.test.ts`, `bun test -t "<name pattern>"`
 - `bun run typecheck` (tsc; JSX resolves to `hono/jsx` through `tsconfig.json`, so the Docker image must copy that file)
 - `bun run import <export.csv> [--force]`: one-shot history import from the Sheet
-- `bun run backup [dest]`: consistent `VACUUM INTO` copy for restic
+- `bun run backup <dest>`: dev tool only. It makes a `VACUUM INTO` copy and fails if the DB doesn't exist (`create: false`).
 - `docker build -t simple-finance .` for a local image. CI (`.github/workflows/docker.yml`) runs typecheck and tests, then publishes **amd64-only** images to `ghcr.io/fileboss/simple-finance`. Git tag `vX.Y.Z` → `:vX.Y.Z` and `:X.Y.Z`, the versions the homelab pins. `main` → `:latest` and `:sha-…`, for dev only, never for deployment.
 
 ## Architecture
@@ -32,7 +32,7 @@ The repo is **public**: personal figures stay in `data/` (gitignored, along with
 - **Store money as integer cents**, never floats. After a CSV import, the totals and raw changes must match the Sheet exactly (e.g. the October 2026 total is 50 330,07 €).
 - **The server does all the calculations.** It injects chart data into the page as JSON (`<script type="application/json">`), and `static/charts.js` only renders it.
 - **No outbound requests.** The app serves all assets itself (Chart.js, CSS) and must work offline on the tailnet.
-- **Backups use `VACUUM INTO`** to write a separate file, which restic then picks up. Never copy the live DB file.
+- **Production backups happen on the host** (a systemd script in `qui-est-ce_infra` runs `sqlite3 .backup` as the owning uid, then restic). The app's job is to keep the DB as **a single SQLite file** under `/data` (WAL is fine). Schema changes go through in-place migrations (`MIGRATIONS` + `PRAGMA user_version` in `src/store.ts`), never through an extra file.
 - **Test the calculations** (gain, monthly return, return since January) against figures from the Sheet.
 - Monthly % divides by the previous month's value. The Sheet divides by the current month's value, so its monthly % differ slightly: only € figures must match.
 
