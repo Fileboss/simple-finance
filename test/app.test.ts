@@ -89,3 +89,34 @@ test("import : performance illisible, rien n'est importé", async () => {
   expect(await res.text()).toContain("PEA : Pourcentage invalide");
   expect(store.accounts()).toEqual([]);
 });
+
+test("clôture : crée le relevé final à 0 avec le retrait du solde", async () => {
+  const livret = store.addAccount("Livret");
+  store.saveStatement({ month: "2026-10", accountId: livret.id, value: 170000, deposits: 0 });
+  const form = await (await app.request("/comptes")).text();
+  expect(form).toContain("crée le relevé de clôture de novembre 2026");
+
+  const res = await post(`/comptes/${livret.id}`, { name: "Livret", color: "#123456", position: "1", closed: "on" });
+  expect(res.status).toBe(303);
+  expect(store.account(livret.id)?.closed).toBe(true);
+  expect(store.statementsFor("2026-11").get(livret.id)).toEqual({ month: "2026-11", accountId: livret.id, value: 0, deposits: -170000 });
+  expect(await (await app.request(res.headers.get("location")!)).text()).toContain("relevé de clôture créé pour novembre 2026");
+});
+
+test("compte ouvert en cours de suivi : versements du premier mois obligatoires", async () => {
+  const livret = store.addAccount("Livret");
+  store.saveStatement({ month: "2026-10", accountId: livret.id, value: 170000, deposits: 0 });
+  const tr = store.addAccount("Trade Republic");
+
+  const form = await (await app.request("/saisie?month=2026-11")).text();
+  expect(form).toContain("Premier relevé");
+
+  const fields = { month: "2026-11", [`value_${livret.id}`]: "1700", [`deposits_${livret.id}`]: "0", [`value_${tr.id}`]: "500" };
+  const bad = await post("/saisie", { ...fields, [`deposits_${tr.id}`]: "" });
+  expect(bad.status).toBe(400);
+  expect(await bad.text()).toContain("indique le montant apporté");
+
+  const ok = await post("/saisie", { ...fields, [`deposits_${tr.id}`]: "500" });
+  expect(ok.status).toBe(303);
+  expect(store.statementsFor("2026-11").get(tr.id)?.deposits).toBe(50000);
+});

@@ -31,7 +31,8 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
   const view = data.months.filter((m) => m.startsWith(`${year}-`) || m === `${Number(year) - 1}-12`);
   const years = [...new Set(data.months.map((m) => m.slice(0, 4)))];
   const at = (points: Point[], m: string) => points[data.months.indexOf(m)]!;
-  const shown = accounts.filter((a) => view.some((m) => at(data.byAccount.get(a.id)!, m).held));
+  const shown = accounts.filter((a) => view.some((m) => at(data.byAccount.get(a.id)!, m).state !== "absent"));
+  const missing = shown.filter((a) => at(data.byAccount.get(a.id)!, month).state === "missing");
   const t = at(data.total, month);
 
   const chart = {
@@ -41,7 +42,7 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
       color: a.color,
       values: view.map((m) => {
         const p = at(data.byAccount.get(a.id)!, m);
-        return p.held ? p.value / 100 : null;
+        return p.value === null ? null : p.value / 100;
       }),
     })),
     invested: view.map((m) => {
@@ -91,7 +92,17 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
       </div>
 
       <section class="kpis">
-        <Kpi label="Valeur totale" main={<Amount cents={t.value} />} />
+        <Kpi
+          label="Valeur totale"
+          main={<TotalValue p={t} />}
+          sub={
+            missing.length > 0 && (
+              <span class="warn-text">
+                incomplet : <a href={`/saisie?month=${month}`}>{missing.map((a) => a.name).join(", ")}</a> sans relevé
+              </span>
+            )
+          }
+        />
         <Kpi
           label="Vs mois précédent"
           main={<Amount cents={t.variation} signed why="Pas de mois précédent" />}
@@ -152,14 +163,20 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
                   </th>
                   {view.map((m) => {
                     const p = at(data.byAccount.get(a.id)!, m);
-                    return <td class={m === month ? "selected" : undefined}>{p.held ? eur(p.value) : <Na why="Pas de relevé" />}</td>;
+                    return (
+                      <td class={m === month ? "selected" : undefined}>
+                        <AccountValue p={p} />
+                      </td>
+                    );
                   })}
                 </tr>
               ))}
               <tr class="total">
                 <th scope="row">Total</th>
                 {view.map((m) => (
-                  <td class={m === month ? "selected" : undefined}>{eur(at(data.total, m).value)}</td>
+                  <td class={m === month ? "selected" : undefined}>
+                    <TotalValue p={at(data.total, m)} />
+                  </td>
                 ))}
               </tr>
             </tbody>
@@ -206,7 +223,7 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
               </tr>
             </thead>
             <tbody>
-              {shown.map((a) => (
+              {shown.filter((a) => at(data.byAccount.get(a.id)!, month).state !== "absent").map((a) => (
                 <DetailRow label={<><Dot color={a.color} />{a.name}</>} p={at(data.byAccount.get(a.id)!, month)} />
               ))}
               <DetailRow label="Total" p={t} total />
@@ -220,6 +237,29 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
         </p>
       </section>
     </Layout>
+  );
+}
+
+/** Valeur d'un compte : relevé, relevé manquant (à saisir) ou compte inexistant ce mois-là. */
+function AccountValue(props: { p: Point }) {
+  const { p } = props;
+  if (p.state === "missing")
+    return (
+      <a class="missing" href={`/saisie?month=${p.month}`} title="Relevé manquant : valeur inconnue">
+        manquant
+      </a>
+    );
+  return p.value === null ? <span /> : <>{eur(p.value)}</>;
+}
+
+/** Total : signalé comme incomplet quand un compte n'a pas de relevé. */
+function TotalValue(props: { p: Point }) {
+  const { p } = props;
+  if (!p.incomplete) return <>{eur(p.value!)}</>;
+  return (
+    <span class="incomplete" title="Total incomplet : au moins un compte n'a pas de relevé ce mois-ci">
+      {eur(p.value!)}*
+    </span>
   );
 }
 
@@ -238,7 +278,7 @@ function DetailRow(props: { label: Child; p: Point; total?: boolean }) {
   return (
     <tr class={props.total ? "total" : undefined}>
       <th scope="row">{props.label}</th>
-      <td>{p.held ? eur(p.value) : <Na why="Pas de relevé" />}</td>
+      <td>{props.total ? <TotalValue p={p} /> : <AccountValue p={p} />}</td>
       <td>{p.deposits === null ? <Na why="Versements inconnus" /> : p.deposits === 0 ? "0" : signedEur(p.deposits)}</td>
       <td><Amount cents={p.variation} signed /></td>
       <td><Pct ratio={p.variationPct} /></td>

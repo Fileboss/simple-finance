@@ -4,8 +4,8 @@ import { compute, type AccountInput, type StatementInput } from "../src/calc.ts"
 // A : suivi depuis décembre, capital de départ connu fin janvier.
 // B : ouvert en février pendant le suivi.
 const accounts: AccountInput[] = [
-  { id: 1, baselineMonth: "2026-01", baselineInvested: 105000 },
-  { id: 2, baselineMonth: null, baselineInvested: null },
+  { id: 1, closed: false, baselineMonth: "2026-01", baselineInvested: 105000 },
+  { id: 2, closed: false, baselineMonth: null, baselineInvested: null },
 ];
 const statements: StatementInput[] = [
   { month: "2025-12", accountId: 1, value: 100000, deposits: null },
@@ -44,9 +44,11 @@ describe("compute", () => {
     expect(a[3]!.ytdRet).toBeCloseTo((1 + 10000 / 110000) * (1 + 5000 / 115000) - 1, 12);
   });
 
-  test("compte ouvert dans le mois : rendement nul si la valeur égale le versement", () => {
-    expect(b[1]).toMatchObject({ held: false, value: 0, variation: 0 });
-    expect(b[2]).toMatchObject({ held: true, variation: 50000, gain: 0, ret: 0, variationPct: null });
+  test("compte ouvert en cours de suivi : inexistant avant, valeur précédente 0 au premier mois", () => {
+    expect(b[1]).toMatchObject({ state: "absent", value: null, variation: null, gain: null });
+    expect(b[2]).toMatchObject({ state: "held", variation: 50000, gain: 0, ret: 0, variationPct: null });
+    // Le total de janvier ne compte pas B et reste complet.
+    expect(total[1]).toMatchObject({ incomplete: false, value: 110000 });
   });
 
   test("capital investi : départ déduit, puis versements cumulés", () => {
@@ -67,7 +69,7 @@ describe("compute", () => {
 
   test("versements inconnus : gain et rendement non disponibles, variation brute conservée", () => {
     const r = compute(
-      [{ id: 1, baselineMonth: null, baselineInvested: null }],
+      [{ id: 1, closed: false, baselineMonth: null, baselineInvested: null }],
       [
         { month: "2026-01", accountId: 1, value: 1000, deposits: null },
         { month: "2026-02", accountId: 1, value: 1500, deposits: null },
@@ -80,5 +82,69 @@ describe("compute", () => {
 
   test("aucun relevé", () => {
     expect(compute(accounts, [])).toEqual({ months: [], byAccount: new Map(), total: [] });
+  });
+
+  test("compte oublié un mois : valeur inconnue, total incomplet, aucun gain ni perte fictifs", () => {
+    const r = compute(
+      [
+        { id: 1, closed: false, baselineMonth: null, baselineInvested: null },
+        { id: 2, closed: false, baselineMonth: null, baselineInvested: null },
+      ],
+      [
+        { month: "2026-01", accountId: 1, value: 100000, deposits: 0 },
+        { month: "2026-03", accountId: 1, value: 102000, deposits: 0 },
+        { month: "2026-01", accountId: 2, value: 50000, deposits: 0 },
+        { month: "2026-02", accountId: 2, value: 51000, deposits: 0 },
+        { month: "2026-03", accountId: 2, value: 52000, deposits: 0 },
+      ],
+    );
+    const a = r.byAccount.get(1)!;
+    expect(a[1]).toMatchObject({ state: "missing", value: null, variation: null, gain: null, ret: null });
+    expect(a[2]).toMatchObject({ state: "held", variation: null, gain: null, ret: null });
+    // Février : valeur partielle affichée, mais pas de variation (sinon -100 000 € fictifs).
+    expect(r.total[1]).toMatchObject({ incomplete: true, value: 51000, variation: null, gain: null, ret: null });
+    // Mars : le mois précédent est incomplet, donc pas de variation non plus (sinon +100 000 € fictifs).
+    expect(r.total[2]).toMatchObject({ incomplete: false, value: 154000, variation: null, gain: null });
+    // Depuis janvier, la variation reste juste ; le gain demande les versements de février, inconnus.
+    expect(r.total[2]).toMatchObject({ ytdVariation: 4000, ytdGain: null, ytdRet: null });
+  });
+
+  test("compte non clôturé sans relevé au dernier mois : manquant, pas zéro", () => {
+    const r = compute(
+      [
+        { id: 1, closed: false, baselineMonth: null, baselineInvested: null },
+        { id: 2, closed: false, baselineMonth: null, baselineInvested: null },
+      ],
+      [
+        { month: "2026-01", accountId: 1, value: 100000, deposits: 0 },
+        { month: "2026-01", accountId: 2, value: 50000, deposits: 0 },
+        { month: "2026-02", accountId: 2, value: 51000, deposits: 0 },
+      ],
+    );
+    expect(r.byAccount.get(1)![1]!.state).toBe("missing");
+    expect(r.total[1]).toMatchObject({ incomplete: true, variation: null, gain: null });
+  });
+
+  test("compte clôturé : retrait du solde, gain nul, puis exclu du total", () => {
+    const r = compute(
+      [
+        { id: 1, closed: true, baselineMonth: "2026-01", baselineInvested: 90000 },
+        { id: 2, closed: false, baselineMonth: null, baselineInvested: null },
+      ],
+      [
+        { month: "2026-01", accountId: 1, value: 100000, deposits: 0 },
+        { month: "2026-02", accountId: 1, value: 0, deposits: -100000 },
+        { month: "2026-01", accountId: 2, value: 50000, deposits: 0 },
+        { month: "2026-02", accountId: 2, value: 151000, deposits: 100000 },
+        { month: "2026-03", accountId: 2, value: 152000, deposits: 0 },
+      ],
+    );
+    const a = r.byAccount.get(1)!;
+    expect(a[1]).toMatchObject({ state: "held", value: 0, variation: -100000, gain: 0, ret: 0, invested: -10000, totalGain: 10000 });
+    expect(a[2]).toMatchObject({ state: "absent", value: null, gain: null });
+    // Février : 1 000 € transférés de A vers B, seul le gain de B (1 000 €) compte.
+    expect(r.total[1]).toMatchObject({ incomplete: false, value: 151000, variation: 1000, deposits: 0, gain: 1000 });
+    expect(r.total[2]).toMatchObject({ incomplete: false, value: 152000, variation: 1000, gain: 1000 });
+    expect(r.total[2]!.ytdGain).toBe(2000);
   });
 });

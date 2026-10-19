@@ -1,5 +1,5 @@
 import { centsToInput, eur, signedEur } from "../money.ts";
-import { monthLabel } from "../months.ts";
+import { addMonths, monthLabel } from "../months.ts";
 import { lastValue, type Check, type SheetData } from "../sheet.ts";
 import type { Account, Statement } from "../store.ts";
 import { Dot, Layout, Na, Notice } from "./layout.tsx";
@@ -7,6 +7,8 @@ import { Dot, Layout, Na, Notice } from "./layout.tsx";
 export interface EntryRow {
   account: Account;
   previous: Statement | undefined;
+  /** Premier relevé d'un compte ouvert en cours de suivi. */
+  opening: boolean;
   value: string;
   deposits: string;
   error?: string;
@@ -55,6 +57,9 @@ export function EntryForm(props: { month: string; rows: EntryRow[]; error?: stri
                   <th scope="row">
                     <Dot color={r.account.color} />
                     {r.account.name}
+                    {r.opening && !r.error && (
+                      <span class="field-hint">Premier relevé : versements = montant apporté ce mois-ci</span>
+                    )}
                     {r.error && <span class="field-error">{r.error}</span>}
                   </th>
                   <td>
@@ -73,7 +78,8 @@ export function EntryForm(props: { month: string; rows: EntryRow[]; error?: stri
                       value={r.deposits}
                       inputmode="decimal"
                       autocomplete="off"
-                      placeholder="inconnu"
+                      placeholder={r.opening ? "montant apporté" : "inconnu"}
+                      required={r.opening}
                       aria-label={`Versements ${r.account.name}`}
                     />
                   </td>
@@ -104,7 +110,13 @@ export function EntryForm(props: { month: string; rows: EntryRow[]; error?: stri
   );
 }
 
-export function AccountsPage(props: { accounts: Account[]; values: Map<string, number>; error?: string; notice?: string }) {
+export function AccountsPage(props: {
+  accounts: Account[];
+  values: Map<string, number>;
+  lasts: Map<number, Statement>;
+  error?: string;
+  notice?: string;
+}) {
   return (
     <Layout title="Comptes" path="/comptes">
       <div class="page-head">
@@ -133,6 +145,12 @@ export function AccountsPage(props: { accounts: Account[]; values: Map<string, n
                   Ordre <input type="number" name="position" value={String(a.position)} min="0" step="1" />
                 </label>
               </div>
+              {!a.closed && props.lasts.get(a.id)?.value ? (
+                <p class="hint">
+                  Cocher « Clôturé » crée le relevé de clôture de {monthLabel(addMonths(props.lasts.get(a.id)!.month, 1))} : valeur
+                  0, retrait de {eur(props.lasts.get(a.id)!.value)}.
+                </p>
+              ) : null}
               <fieldset>
                 <legend>Capital investi de départ</legend>
                 <div class="baseline">

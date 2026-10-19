@@ -70,6 +70,8 @@ Les rendements mensuels sont chaînés (rendement pondéré par le temps) : un g
 
 **Total** : les valeurs, versements et gains s'additionnent sur tous les comptes, et les % se calculent avec les mêmes formules sur ces sommes.
 
+**Relevé manquant** : un mois sans relevé entre le premier et le dernier relevé d'un compte rend sa valeur inconnue, jamais nulle. Le total de ce mois s'affiche comme incomplet, sans variation ni gain, pour ne pas montrer de perte ou de gain fictifs. Un compte n'entre dans le total qu'à partir de son premier relevé. Il en sort après sa clôture, qui crée un dernier relevé à 0 avec en versements le retrait du solde. Pour un compte ouvert en cours de suivi, les versements du premier mois valent le montant apporté.
+
 ## Démarrage des données
 
 ### Capital investi initial

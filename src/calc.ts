@@ -5,6 +5,8 @@ import { monthRange } from "./months.ts";
 
 export interface AccountInput {
   id: number;
+  /** Clôturé : le compte n'existe plus après son dernier relevé (valeur 0). */
+  closed: boolean;
   /** Capital investi (centimes) à la fin de baselineMonth, déduit de la performance affichée. */
   baselineMonth: string | null;
   baselineInvested: number | null;
@@ -18,12 +20,21 @@ export interface StatementInput {
   deposits: number | null;
 }
 
+/**
+ * absent : le compte n'existe pas ce mois-là (avant son premier relevé, ou après
+ * sa clôture) et n'entre pas dans le total. missing : il existe mais le relevé
+ * manque, donc sa valeur est inconnue, jamais 0.
+ */
+export type State = "absent" | "held" | "missing";
+
 /** Valeurs d'un compte (ou du total) pour un mois. null = non disponible. */
 export interface Point {
   month: string;
-  /** false si le compte n'a pas de relevé ce mois-ci (valeur et versements comptés à 0). */
-  held: boolean;
-  value: number;
+  state: State;
+  /** Pour le total incomplet : somme des valeurs connues, à afficher comme telle. */
+  value: number | null;
+  /** Total seulement : au moins un compte n'a pas de relevé ce mois-ci. */
+  incomplete: boolean;
   deposits: number | null;
   variation: number | null;
   variationPct: number | null;
@@ -46,6 +57,14 @@ export interface Computed {
   total: Point[];
 }
 
+interface Lane {
+  state: State[];
+  value: (number | null)[];
+  /** absent → 0, manquant ou inconnu → null. */
+  deposits: (number | null)[];
+  invested: (number | null)[];
+}
+
 export function compute(accounts: AccountInput[], statements: StatementInput[]): Computed {
   if (statements.length === 0) return { months: [], byAccount: new Map(), total: [] };
   const sorted = statements.map((s) => s.month).sort();
@@ -53,32 +72,38 @@ export function compute(accounts: AccountInput[], statements: StatementInput[]):
   const index = new Map(months.map((m, i) => [m, i]));
 
   const byAccount = new Map<number, Point[]>();
-  const raw = accounts.map((a) => {
-    const held = months.map(() => false);
-    const value = months.map(() => 0);
-    const deposits: (number | null)[] = months.map(() => 0);
-    for (const s of statements) {
-      if (s.accountId !== a.id) continue;
-      const i = index.get(s.month)!;
-      held[i] = true;
-      value[i] = s.value;
-      deposits[i] = s.deposits;
-    }
-    const invested = investedSeries(a, months, held, deposits);
-    byAccount.set(a.id, series(months, held, value, deposits, invested));
-    return { held, value, deposits, invested };
+  const lanes = accounts.map((a) => {
+    const own = new Map(statements.filter((s) => s.accountId === a.id).map((s) => [index.get(s.month)!, s]));
+    const held = [...own.keys()];
+    const first = held.length ? Math.min(...held) : Infinity;
+    const last = held.length ? Math.max(...held) : -Infinity;
+    const state = months.map((_, i): State => {
+      if (own.has(i)) return "held";
+      if (i < first || (a.closed && i > last)) return "absent";
+      return "missing";
+    });
+    const lane: Lane = {
+      state,
+      value: months.map((_, i) => own.get(i)?.value ?? null),
+      deposits: months.map((_, i) => (state[i] === "absent" ? 0 : (own.get(i)?.deposits ?? null))),
+      invested: [],
+    };
+    lane.invested = investedLane(a, months, lane, first);
+    byAccount.set(a.id, series(months, lane));
+    return lane;
   });
 
-  // Total : valeurs, versements et capital s'additionnent ; un seul inconnu rend la somme inconnue.
-  const total = series(
-    months,
-    months.map(() => true),
-    months.map((_, i) => sum(raw.map((r) => r.value[i]!))),
-    months.map((_, i) => sumOrNull(raw.map((r) => r.deposits[i]!))),
-    months.map((_, i) =>
-      sumOrNull(raw.filter((r) => r.held.slice(0, i + 1).some(Boolean)).map((r) => r.invested[i]!)),
-    ),
-  );
+  // Total : somme des comptes existants. Un relevé manquant le rend incomplet :
+  // valeur partielle affichée, mais aucune variation ni aucun gain calculés.
+  const incomplete = months.map((_, i) => lanes.some((l) => l.state[i] === "missing"));
+  const partial = months.map((_, i) => sum(lanes.map((l) => l.value[i] ?? 0)));
+  const existing = (i: number) => lanes.filter((l) => l.state[i] !== "absent");
+  const total = series(months, {
+    state: incomplete.map((x) => (x ? "missing" : "held")),
+    value: months.map((_, i) => (incomplete[i] ? null : partial[i]!)),
+    deposits: months.map((_, i) => sumOrNull(existing(i).map((l) => l.deposits[i]!))),
+    invested: months.map((_, i) => sumOrNull(existing(i).map((l) => l.invested[i]!))),
+  }).map((p, i) => ({ ...p, value: partial[i]!, incomplete: incomplete[i]! }));
   return { months, byAccount, total };
 }
 
@@ -87,67 +112,63 @@ export function compute(accounts: AccountInput[], statements: StatementInput[]):
  * performance (baseline), sinon le mois d'ouverture si le compte a été ouvert
  * pendant le suivi (valeur précédente nulle, versements du mois connus).
  */
-function investedSeries(a: AccountInput, months: string[], held: boolean[], deposits: (number | null)[]) {
+function investedLane(a: AccountInput, months: string[], lane: Lane, first: number): (number | null)[] {
   const out: (number | null)[] = months.map(() => null);
   let start = -1;
   let base: number | null = null;
   if (a.baselineMonth !== null && a.baselineInvested !== null) {
     start = months.indexOf(a.baselineMonth);
     base = a.baselineInvested;
-  } else {
-    const first = held.indexOf(true);
-    if (first > 0) {
-      start = first;
-      base = deposits[first]!;
-    }
+  } else if (first > 0 && first < months.length) {
+    start = first;
+    base = lane.deposits[first]!;
   }
   if (start < 0) return out;
   out[start] = base;
   for (let i = start + 1; i < months.length; i++) {
     const prev = out[i - 1]!;
-    const d = deposits[i]!;
-    out[i] = prev === null || d === null ? null : prev + d;
+    const d = lane.deposits[i]!;
+    out[i] = lane.state[i] === "absent" || prev === null || d === null ? null : prev + d;
   }
   return out;
 }
 
-function series(
-  months: string[],
-  held: boolean[],
-  value: number[],
-  deposits: (number | null)[],
-  invested: (number | null)[],
-): Point[] {
+function series(months: string[], lane: Lane): Point[] {
+  const { state, value, deposits } = lane;
+  // Valeur de départ du mois i : 0 si le compte n'existait pas encore, inconnue si le relevé manque.
+  const start = (i: number) => (i < 0 ? null : state[i] === "absent" ? 0 : value[i]!);
   const rets: (number | null)[] = [];
   return months.map((month, i) => {
     const v = value[i]!;
     const d = deposits[i]!;
-    const prev = i > 0 ? value[i - 1]! : null;
-    const variation = prev === null ? null : v - prev;
+    const prev = start(i - 1);
+    const variation = v === null || prev === null ? null : v - prev;
     const gain = variation === null || d === null ? null : variation - d;
     // Dietz modifié simplifié : versements supposés en milieu de mois.
     const denom = prev === null || d === null ? 0 : prev + d / 2;
     const ret = gain !== null && denom > 0 ? gain / denom : null;
-    rets.push(ret);
+    // Un mois où le compte n'existe pas est neutre dans le chaînage.
+    rets.push(state[i] === "absent" ? 0 : ret);
 
     // Depuis janvier : référence = relevé de janvier de l'année du mois.
     const jan = i - (Number(month.slice(5)) - 1);
     let ytdVariation = null, ytdVariationPct = null, ytdGain = null, ytdRet = null;
     if (jan >= 0 && i > jan) {
-      const ref = value[jan]!;
-      ytdVariation = v - ref;
-      ytdVariationPct = ref !== 0 ? ytdVariation / ref : null;
-      const d = sumOrNull(deposits.slice(jan + 1, i + 1));
-      ytdGain = d === null ? null : ytdVariation - d;
+      const ref = start(jan);
+      ytdVariation = v === null || ref === null ? null : v - ref;
+      ytdVariationPct = ytdVariation !== null && ref ? ytdVariation / ref : null;
+      const ds = sumOrNull(deposits.slice(jan + 1, i + 1));
+      ytdGain = ytdVariation === null || ds === null ? null : ytdVariation - ds;
       ytdRet = rets.slice(jan + 1, i + 1).reduce<number | null>((acc, r) => (acc === null || r === null ? null : acc * (1 + r)), 1);
       if (ytdRet !== null) ytdRet -= 1;
     }
 
-    const inv = invested[i]!;
-    return {
+    const inv = lane.invested[i]!;
+    const point: Point = {
       month,
-      held: held[i]!,
+      state: state[i]!,
       value: v,
+      incomplete: false,
       deposits: d,
       variation,
       variationPct: variation !== null && prev ? variation / prev : null,
@@ -158,10 +179,25 @@ function series(
       ytdGain,
       ytdRet,
       invested: inv,
-      totalGain: inv === null ? null : v - inv,
+      totalGain: inv === null || v === null ? null : v - inv,
     };
+    return state[i] === "absent" ? { ...point, ...EMPTY, deposits: null } : point;
   });
 }
+
+const EMPTY = {
+  value: null,
+  variation: null,
+  variationPct: null,
+  gain: null,
+  ret: null,
+  ytdVariation: null,
+  ytdVariationPct: null,
+  ytdGain: null,
+  ytdRet: null,
+  invested: null,
+  totalGain: null,
+};
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 

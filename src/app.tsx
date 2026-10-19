@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { compute } from "./calc.ts";
-import { centsToInput, investedFromPerformance, parseCents, parsePercent } from "./money.ts";
-import { addMonths, currentMonth, isMonth } from "./months.ts";
+import { centsToInput, eur, investedFromPerformance, parseCents, parsePercent } from "./money.ts";
+import { addMonths, currentMonth, isMonth, monthLabel } from "./months.ts";
 import { applySheet, checkSheet, parseSheet, type Baseline } from "./sheet.ts";
 import type { Account, Store } from "./store.ts";
 import { Dashboard, EmptyDashboard } from "./views/dashboard.tsx";
@@ -50,19 +50,29 @@ export function createApp(store: Store) {
     return store.accounts().filter((a) => !a.closed || current.has(a.id));
   };
 
+  // Compte ouvert en cours de suivi : aucun relevé avant ce mois alors que d'autres comptes en ont.
+  const openingCheck = (month: string) => {
+    const before = store.statements().filter((s) => s.month < month);
+    const seen = new Set(before.map((s) => s.accountId));
+    return (accountId: number) => before.length > 0 && !seen.has(accountId);
+  };
+
   app.get("/saisie", (c) => {
     const last = store.statements().at(-1)?.month;
     const q = c.req.query("month");
     const month = isMonth(q) ? q : last ? addMonths(last, 1) : currentMonth();
     const current = store.statementsFor(month);
     const previous = store.statementsFor(addMonths(month, -1));
+    const isOpening = openingCheck(month);
     const rows: EntryRow[] = entryAccounts(month).map((account) => {
       const s = current.get(account.id);
+      const opening = isOpening(account.id);
       return {
         account,
         previous: previous.get(account.id),
+        opening,
         value: s ? centsToInput(s.value) : "",
-        deposits: s ? (s.deposits === null ? "" : centsToInput(s.deposits)) : "0",
+        deposits: s ? (s.deposits === null ? "" : centsToInput(s.deposits)) : opening ? "" : "0",
       };
     });
     return c.html(<EntryForm month={month} rows={rows} />);
@@ -73,10 +83,12 @@ export function createApp(store: Store) {
     const month = field(body, "month");
     if (!isMonth(month)) return c.text("Mois invalide", 400);
     const previous = store.statementsFor(addMonths(month, -1));
+    const isOpening = openingCheck(month);
     const parsed = entryAccounts(month).map((account) => {
       const row: EntryRow = {
         account,
         previous: previous.get(account.id),
+        opening: isOpening(account.id),
         value: field(body, `value_${account.id}`),
         deposits: field(body, `deposits_${account.id}`),
       };
@@ -86,6 +98,8 @@ export function createApp(store: Store) {
         value = parseCents(row.value);
         deposits = parseCents(row.deposits);
         if (value === null && deposits !== null && deposits !== 0) row.error = "Valeur manquante";
+        else if (row.opening && value !== null && deposits === null)
+          row.error = "Premier relevé : indique le montant apporté dans Versements, sinon toute la valeur compte comme un gain.";
       } catch (e) {
         row.error = (e as Error).message;
       }
@@ -107,12 +121,22 @@ export function createApp(store: Store) {
   // Comptes
 
   const accountsPage = (opts: { error?: string; notice?: string } = {}) => {
-    const values = new Map(store.statements().map((s) => [`${s.month}:${s.accountId}`, s.value]));
-    return <AccountsPage accounts={store.accounts()} values={values} {...opts} />;
+    const statements = store.statements();
+    const values = new Map(statements.map((s) => [`${s.month}:${s.accountId}`, s.value]));
+    const lasts = new Map(statements.map((s) => [s.accountId, s])); // triés par mois : le dernier gagne
+    return <AccountsPage accounts={store.accounts()} values={values} lasts={lasts} {...opts} />;
   };
   const validColor = (s: string) => /^#[0-9a-f]{6}$/i.test(s);
 
-  app.get("/comptes", (c) => c.html(accountsPage({ notice: c.req.query("saved") ? "Compte enregistré." : undefined })));
+  app.get("/comptes", (c) => {
+    const closed = store.lastStatement(Number(c.req.query("closed")));
+    const notice = closed
+      ? `Compte clôturé : relevé de clôture créé pour ${monthLabel(closed.month)} (valeur 0, retrait de ${eur(-(closed.deposits ?? 0))}).`
+      : c.req.query("saved")
+        ? "Compte enregistré."
+        : undefined;
+    return c.html(accountsPage({ notice }));
+  });
 
   app.post("/comptes", async (c) => {
     const body = await c.req.parseBody();
@@ -132,7 +156,17 @@ export function createApp(store: Store) {
       const updated = readAccount(account, body);
       const other = store.accountByName(updated.name);
       if (other && other.id !== account.id) throw new Error(`Le compte « ${updated.name} » existe déjà.`);
-      store.updateAccount(updated);
+      // Clôture : relevé final à 0 avec le retrait du solde, sinon le solde disparaîtrait en perte fictive.
+      const last = store.lastStatement(account.id);
+      const closing =
+        updated.closed && !account.closed && last && last.value !== 0
+          ? { month: addMonths(last.month, 1), accountId: account.id, value: 0, deposits: -last.value }
+          : null;
+      store.transaction(() => {
+        store.updateAccount(updated);
+        if (closing) store.saveStatement(closing);
+      });
+      if (closing) return c.redirect(`/comptes?closed=${account.id}`, 303);
     } catch (e) {
       return c.html(accountsPage({ error: `${account.name} : ${(e as Error).message}` }), 400);
     }

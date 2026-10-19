@@ -111,14 +111,14 @@ export function parseSheet(text: string): SheetData {
  * compare aux lignes du Sheet. Toute différence, même d'un centime, est remontée.
  */
 export function checkSheet(data: SheetData): Check[] {
-  const accounts = data.accounts.map((_, id) => ({ id, baselineMonth: null, baselineInvested: null }));
+  const accounts = data.accounts.map((_, id) => ({ id, closed: false, baselineMonth: null, baselineInvested: null }));
   const statements = data.accounts.flatMap((a, id) =>
     a.values.flatMap((value, k) => (value === null ? [] : [{ month: data.months[k]!, accountId: id, value, deposits: null }])),
   );
   const { months, total } = compute(accounts, statements);
   const point = (m: string) => total[months.indexOf(m)];
   const rows: [string, (number | null)[] | null, (m: string) => number | null][] = [
-    ["Total", data.total, (m) => point(m)?.value ?? null],
+    ["Total", data.total, (m) => (point(m)?.incomplete ? null : (point(m)?.value ?? null))],
     ["Variation", data.variation, (m) => point(m)?.variation ?? null],
     ["Variation depuis janvier", data.ytdVariation, (m) => point(m)?.ytdVariation ?? null],
   ];

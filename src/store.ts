@@ -124,6 +124,14 @@ export class Store {
     return new Map(rows.map((s) => [s.accountId, s]));
   }
 
+  lastStatement(accountId: number): Statement | null {
+    return this.db
+      .query<Statement, [number]>(
+        "SELECT month, account_id AS accountId, value, deposits FROM statements WHERE account_id = ? ORDER BY month DESC LIMIT 1",
+      )
+      .get(accountId);
+  }
+
   saveStatement(s: Statement): void {
     this.db
       .query(
