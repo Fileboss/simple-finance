@@ -1,16 +1,9 @@
-# Stack du homelab : copier ce fichier puis `docker compose up -d`.
-# L'image est construite et publiée par la GitHub Action (.github/workflows/docker.yml).
-# Publiée sur 127.0.0.1 seulement : `tailscale serve --bg 3000` l'expose au tailnet.
+# Dev local uniquement : le déploiement vit dans qui-est-ce_infra (homelab/simple-finance/).
+# Le conteneur tourne en uid 1000 : ./data doit lui être accessible en écriture.
 services:
   simple-finance:
-    image: ghcr.io/fileboss/simple-finance:latest   # ou une version figée, ex. :1.0.0
-    pull_policy: always                              # chaque `up` récupère la dernière image
-    restart: unless-stopped
+    build: .
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
-      - finance-data:/data
-    mem_limit: 128m
-
-volumes:
-  finance-data:
+      - ./data:/data

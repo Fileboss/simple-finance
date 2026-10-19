@@ -59,7 +59,7 @@ The app must stay **lightweight yet pleasant to use**. Keep the footprint minima
 
 ## Hosting
 
-Deployment config lives in a separate repo, `qui-est-ce_infra` (homelab). The app runs as its own Docker Compose stack with a single lightweight container. It is reachable **only on the tailnet** via `tailscale serve` and never exposed publicly. The app itself serves plain HTTP: `tailscale serve` handles TLS and access, so the app has no TLS code and, for now, no login (one may be added later). The SQLite DB is backed up nightly to the VPS restic repo, and the image is versioned.
+Deployment lives in the `qui-est-ce_infra` repo (stack `homelab/simple-finance/`, like Paperless and Beszel). This repo only provides the image and the app. The homelab pins the image by version (`:vX.Y.Z`, set through a version variable) and reaches it **only on the tailnet** via `tailscale serve`, which terminates TLS. There is no login for now; one may be added later. Container contract: user `bun` (uid 1000), `DB_PATH=/data/finance.sqlite`, `PORT=3000`, `GET /health`. The ghcr package must stay public so the homelab can pull without logging in. `compose.yaml` here is for local dev only (`build: .`, `./data:/data`).
 
 ## Out of scope
 

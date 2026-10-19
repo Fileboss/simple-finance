@@ -153,9 +153,7 @@ Reprise de l'historique, une fois au démarrage : exporter le Sheet en CSV puis 
 
 Les données personnelles restent hors du dépôt (public) : `data/` et `reference.png` sont ignorés par git. Si `data/sheet.csv` existe, `bun test` vérifie aussi l'import sur les vrais chiffres.
 
-Déploiement : à chaque push sur `main`, la GitHub Action (`.github/workflows/docker.yml`) lance les tests puis publie l'image `ghcr.io/fileboss/simple-finance:latest` (amd64 et arm64). Un tag `vX.Y.Z` publie en plus `:X.Y.Z` et `:X.Y` pour figer une version. Sur le homelab, on copie `compose.yaml` puis on lance `docker compose up -d` : `pull_policy: always` récupère la dernière image à chaque `up`. Le conteneur publie le port 3000 sur `127.0.0.1`, puis `tailscale serve --bg 3000` l'expose au tailnet. Les données vivent dans le volume `finance-data`. Sauvegarde nocturne : `docker compose exec simple-finance bun run backup /data/backup/finance.sqlite`, puis restic envoie ce fichier (chemin sur l'hôte : `docker volume inspect` sur le volume).
-
-Après la première publication, passer le package en public dans GitHub (Packages › simple-finance › Package settings › Change visibility) pour que le homelab puisse faire `docker pull` sans s'authentifier. Sinon, il faut lancer `docker login ghcr.io` sur le homelab avec un token qui a le droit `read:packages`.
+Déploiement : la CI publie l'image `ghcr.io/fileboss/simple-finance:vX.Y.Z` à chaque tag `vX.Y.Z`. La stack du homelab et sa sauvegarde vivent dans le dépôt `qui-est-ce_infra` (`homelab/simple-finance/`). Le `compose.yaml` de ce dépôt ne sert qu'au dev local.
 
 ## Hors périmètre
 
