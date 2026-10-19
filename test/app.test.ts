@@ -143,3 +143,16 @@ test("saisie : suppression explicite d'un relevé", async () => {
   expect(store.statementsFor("2026-10").size).toBe(0);
   expect(await (await app.request(res.headers.get("location")!)).text()).toContain("Relevé de Livret supprimé pour octobre 2026");
 });
+
+test("derrière tailscale serve : Host en *.ts.net accepté, redirections relatives", async () => {
+  const livret = store.addAccount("Livret");
+  const headers = { host: "homelab.tail1234.ts.net", "x-forwarded-proto": "https", "sec-fetch-site": "same-origin" };
+  expect((await app.request("https://homelab.tail1234.ts.net/", { headers })).status).toBe(200);
+  const body = new FormData();
+  body.set("month", "2026-10");
+  body.set(`value_${livret.id}`, "10");
+  body.set(`deposits_${livret.id}`, "0");
+  const res = await app.request("http://127.0.0.1:3000/saisie", { method: "POST", body, headers });
+  expect(res.status).toBe(303);
+  expect(res.headers.get("location")).toBe("/?month=2026-10&saved=1");
+});
