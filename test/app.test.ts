@@ -120,3 +120,26 @@ test("compte ouvert en cours de suivi : versements du premier mois obligatoires"
   expect(ok.status).toBe(303);
   expect(store.statementsFor("2026-11").get(tr.id)?.deposits).toBe(50000);
 });
+
+test("saisie : une valeur vide est refusée et ne supprime pas le relevé", async () => {
+  const livret = store.addAccount("Livret");
+  store.saveStatement({ month: "2026-10", accountId: livret.id, value: 170000, deposits: 0 });
+  const form = await (await app.request("/saisie?month=2026-10")).text();
+  expect(form).toMatch(/name="value_\d+" value="1700,00"[^>]*required/);
+
+  const res = await post("/saisie", { month: "2026-10", [`value_${livret.id}`]: "", [`deposits_${livret.id}`]: "0" });
+  expect(res.status).toBe(400);
+  expect(await res.text()).toContain("Valeur obligatoire");
+  expect(store.statementsFor("2026-10").get(livret.id)?.value).toBe(170000);
+});
+
+test("saisie : suppression explicite d'un relevé", async () => {
+  const livret = store.addAccount("Livret");
+  store.saveStatement({ month: "2026-10", accountId: livret.id, value: 170000, deposits: 0 });
+  expect(await (await app.request("/saisie?month=2026-10")).text()).toContain('formaction="/saisie/supprimer"');
+
+  const res = await post("/saisie/supprimer", { month: "2026-10", account: String(livret.id) });
+  expect(res.status).toBe(303);
+  expect(store.statementsFor("2026-10").size).toBe(0);
+  expect(await (await app.request(res.headers.get("location")!)).text()).toContain("Relevé de Livret supprimé pour octobre 2026");
+});

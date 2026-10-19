@@ -173,6 +173,8 @@ button, .button {
 }
 button.secondary, .button.secondary { background: var(--surface); color: var(--ink); border-color: var(--border); }
 button.danger { background: var(--neg); color: #fff; }
+button.link-danger { background: none; border: none; color: var(--neg); padding: 0.3rem 0.4rem; font-weight: 500; font-size: 0.85rem; }
+button.link-danger:hover { text-decoration: underline; }
 button:hover, .button:hover { filter: brightness(1.05); }
 .actions { display: flex; gap: 0.6rem; justify-content: flex-end; align-items: center; margin: 1rem 0 0; flex-wrap: wrap; }
 
@@ -182,7 +184,7 @@ button:hover, .button:hover { filter: brightness(1.05); }
 .entry-table input { width: 100%; max-width: 11rem; text-align: right; font-variant-numeric: tabular-nums; }
 .entry-table tr.invalid input { border-color: var(--neg); }
 .field-hint { display: block; color: var(--warn-ink); font-size: 0.8rem; font-weight: 400; white-space: normal; }
-.field-error { display: block; color: var(--neg); font-size: 0.8rem; font-weight: 400; }
+.field-error { white-space: normal; display: block; color: var(--neg); font-size: 0.8rem; font-weight: 400; }
 .entry-table td.muted { font-variant-numeric: tabular-nums; font-size: 0.88rem; }
 
 .account-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 0 1.25rem; }

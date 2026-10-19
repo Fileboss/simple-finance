@@ -9,12 +9,14 @@ export interface EntryRow {
   previous: Statement | undefined;
   /** Premier relevé d'un compte ouvert en cours de suivi. */
   opening: boolean;
+  /** Un relevé est déjà enregistré pour ce mois (il peut être supprimé). */
+  saved: boolean;
   value: string;
   deposits: string;
   error?: string;
 }
 
-export function EntryForm(props: { month: string; rows: EntryRow[]; error?: string }) {
+export function EntryForm(props: { month: string; rows: EntryRow[]; error?: string; notice?: string }) {
   const { month, rows } = props;
   return (
     <Layout title="Saisie" path="/saisie">
@@ -33,6 +35,7 @@ export function EntryForm(props: { month: string; rows: EntryRow[]; error?: stri
         </form>
       </div>
       {props.error && <Notice kind="error">{props.error}</Notice>}
+      {props.notice && <Notice>{props.notice}</Notice>}
       {rows.length === 0 ? (
         <section class="empty">
           <p>
@@ -49,6 +52,7 @@ export function EntryForm(props: { month: string; rows: EntryRow[]; error?: stri
                 <th>Valeur</th>
                 <th>Versements</th>
                 <th class="hide-sm">Mois précédent</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -68,7 +72,7 @@ export function EntryForm(props: { month: string; rows: EntryRow[]; error?: stri
                       value={r.value}
                       inputmode="decimal"
                       autocomplete="off"
-                      placeholder={r.previous ? centsToInput(r.previous.value) : "0,00"}
+                      required
                       aria-label={`Valeur ${r.account.name}`}
                     />
                   </td>
@@ -93,13 +97,28 @@ export function EntryForm(props: { month: string; rows: EntryRow[]; error?: stri
                       <Na why="Pas de relevé le mois précédent" />
                     )}
                   </td>
+                  <td>
+                    {r.saved && (
+                      <button
+                        type="submit"
+                        class="link-danger"
+                        formaction="/saisie/supprimer"
+                        formnovalidate
+                        name="account"
+                        value={String(r.account.id)}
+                        title={`Supprimer le relevé de ${r.account.name} pour ${monthLabel(month)}`}
+                      >
+                        Supprimer
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p class="hint">
-            Laisser une valeur vide supprime le relevé du compte pour ce mois. Laisser les versements vides les marque comme
-            inconnus : le gain et le rendement du mois ne seront pas calculés. Un retrait se saisit en négatif.
+            La valeur est obligatoire pour chaque compte. Laisser les versements vides les marque comme inconnus : le gain
+            et le rendement du mois ne seront pas calculés. Un retrait se saisit en négatif.
           </p>
           <p class="actions">
             <button type="submit">Enregistrer {monthLabel(month)}</button>

@@ -71,11 +71,14 @@ export function createApp(store: Store) {
         account,
         previous: previous.get(account.id),
         opening,
+        saved: s !== undefined,
         value: s ? centsToInput(s.value) : "",
         deposits: s ? (s.deposits === null ? "" : centsToInput(s.deposits)) : opening ? "" : "0",
       };
     });
-    return c.html(<EntryForm month={month} rows={rows} />);
+    const deleted = store.account(Number(c.req.query("deleted")));
+    const notice = deleted ? `Relevé de ${deleted.name} supprimé pour ${monthLabel(month)}.` : undefined;
+    return c.html(<EntryForm month={month} rows={rows} notice={notice} />);
   });
 
   app.post("/saisie", async (c) => {
@@ -84,11 +87,13 @@ export function createApp(store: Store) {
     if (!isMonth(month)) return c.text("Mois invalide", 400);
     const previous = store.statementsFor(addMonths(month, -1));
     const isOpening = openingCheck(month);
+    const current = store.statementsFor(month);
     const parsed = entryAccounts(month).map((account) => {
       const row: EntryRow = {
         account,
         previous: previous.get(account.id),
         opening: isOpening(account.id),
+        saved: current.has(account.id),
         value: field(body, `value_${account.id}`),
         deposits: field(body, `deposits_${account.id}`),
       };
@@ -97,7 +102,7 @@ export function createApp(store: Store) {
       try {
         value = parseCents(row.value);
         deposits = parseCents(row.deposits);
-        if (value === null && deposits !== null && deposits !== 0) row.error = "Valeur manquante";
+        if (value === null) row.error = "Valeur obligatoire";
         else if (row.opening && value !== null && deposits === null)
           row.error = "Premier relevé : indique le montant apporté dans Versements, sinon toute la valeur compte comme un gain.";
       } catch (e) {
@@ -111,11 +116,20 @@ export function createApp(store: Store) {
     }
     store.transaction(() => {
       for (const { row, value, deposits } of parsed) {
-        if (value === null) store.deleteStatement(month, row.account.id);
-        else store.saveStatement({ month, accountId: row.account.id, value, deposits });
+        store.saveStatement({ month, accountId: row.account.id, value: value!, deposits });
       }
     });
     return c.redirect(`/?month=${month}&saved=1`, 303);
+  });
+
+  // Suppression explicite d'un relevé (bouton dédié de la saisie).
+  app.post("/saisie/supprimer", async (c) => {
+    const body = await c.req.parseBody();
+    const month = field(body, "month");
+    const account = store.account(Number(field(body, "account")));
+    if (!isMonth(month) || !account) return c.text("Requête invalide", 400);
+    store.deleteStatement(month, account.id);
+    return c.redirect(`/saisie?month=${month}&deleted=${account.id}`, 303);
   });
 
   // Comptes
