@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.3 # même version que l'image de base
+          bun-version: 1.4.4 # même version que l'image de base
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun test
