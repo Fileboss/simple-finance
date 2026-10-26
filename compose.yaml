@@ -1,0 +1,9 @@
+# Dev local uniquement : le déploiement vit dans un dépôt d'infrastructure séparé.
+# Le conteneur tourne en uid 1000 : ./data doit lui être accessible en écriture.
+services:
+  simple-finance:
+    build: .
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./data:/data

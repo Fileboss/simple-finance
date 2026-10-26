@@ -1,0 +1,7 @@
+node_modules/
+data/
+*.sqlite
+*.sqlite-*
+.DS_Store
+# Données personnelles : le dépôt est public
+reference.png
