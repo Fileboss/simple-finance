@@ -4,6 +4,22 @@ A simple, lightweight, self-hostable finance tracking app with GUI.
 
 Petit dashboard self-hosted pour suivre la valorisation de ses comptes (épargne, placements) mois par mois. Il remplace un Google Sheet tenu à la main.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/tableau-de-bord-sombre.png">
+  <img src="docs/screenshots/tableau-de-bord.png" alt="Tableau de bord : valeur totale, variations, plus-value et graphique de la valorisation par compte, mois par mois">
+</picture>
+
+<details>
+<summary>Autres captures (tableau mensuel, saisie)</summary>
+
+![Valorisation par mois : une ligne par compte, le total et ses variations, colonne des comptes figée](docs/screenshots/valorisation-par-mois.png)
+
+![Saisie du mois : valeur de chaque compte et versements nets](docs/screenshots/saisie.png)
+
+</details>
+
+Captures faites sur des données inventées.
+
 > État : première version implémentée (saisie, tableau de bord, comptes, import du Sheet). Ce README résume aussi les décisions prises avant de démarrer.
 
 ## Pourquoi une app maison
