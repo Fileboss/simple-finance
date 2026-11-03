@@ -4,7 +4,9 @@ Idées et évolutions à venir, de la plus prioritaire à la moins prioritaire. 
 
 ## À faire
 
-- **Performance par compte bancaire** : voir la performance de chaque compte, pas seulement celle du total.
+- **Performance par compte bancaire** : cliquer sur un compte ouvre sa page, avec la performance du compte seulement, sans le détail des lignes (actions, fonds…).
+  - **Performance globale** : plus-value totale en € et en %, à partir du capital investi et de la valeur actuelle.
+  - **Mois par mois** : la performance de chaque mois, hors versements (gain et rendement), et à côté les versements du mois, pour voir les deux séparément.
 
 ## En cours
 
