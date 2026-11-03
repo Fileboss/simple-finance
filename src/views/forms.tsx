@@ -4,6 +4,9 @@ import { lastValue, type Check, type SheetData } from "../sheet.ts";
 import type { Account, Statement } from "../store.ts";
 import { Dot, Layout, Na, Notice } from "./layout.tsx";
 
+/** Firefox n'a pas de sélecteur de mois : une case de texte vide. On y indique le format attendu. */
+const MONTH_FALLBACK = { placeholder: "AAAA-MM", pattern: "[0-9]{4}-[0-9]{2}", title: "Mois, au format AAAA-MM" };
+
 export interface EntryRow {
   account: Account;
   previous: Statement | undefined;
@@ -27,7 +30,7 @@ export function EntryForm(props: { month: string; rows: EntryRow[]; error?: stri
         </div>
         <form method="get" action="/saisie" class="inline">
           <label>
-            Mois <input type="month" name="month" value={month} required />
+            Mois <input type="month" name="month" value={month} required {...MONTH_FALLBACK} />
           </label>
           <button type="submit" class="secondary">
             Changer
@@ -175,7 +178,7 @@ export function AccountsPage(props: {
                 <div class="baseline">
                   <label>
                     Fin de mois
-                    <input type="month" name="baseline_month" value={a.baselineMonth ?? ""} />
+                    <input type="month" name="baseline_month" value={a.baselineMonth ?? ""} {...MONTH_FALLBACK} />
                   </label>
                   <label>
                     Performance affichée
