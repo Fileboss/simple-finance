@@ -124,7 +124,7 @@ main { max-width: 1240px; margin: 0 auto; padding: 1.5rem 16px 4rem; }
 .chart { position: relative; height: 340px; }
 
 /* Tableaux */
-.table-wrap { overflow-x: auto; margin: 0 -1.25rem; padding: 0 1.25rem; }
+.table-wrap { overflow-x: auto; margin: 0 -1.25rem; padding-right: 1.25rem; }
 table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 .grid th, .grid td { padding: 0.45rem 0.7rem; white-space: nowrap; text-align: right; border-bottom: 1px solid var(--border); }
 .grid thead th { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
@@ -132,6 +132,8 @@ table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nu
 .grid thead th a:hover { color: var(--ink); }
 .grid th.group { text-align: center; border-bottom: none; padding-bottom: 0; }
 .grid tbody th { text-align: left; font-weight: 500; position: sticky; left: 0; background: var(--surface); z-index: 1; }
+/* Marge gauche de la carte portée par la colonne figée : aucun chiffre ne défile à sa gauche. */
+.grid tbody th, .grid thead tr:first-child th:first-child { padding-left: calc(1.25rem + 0.7rem); }
 .grid .selected { background: var(--selected); }
 .grid thead th.selected { color: var(--accent); }
 .grid tr.total th, .grid tr.total td { font-weight: 700; border-top: 2px solid var(--border); }
