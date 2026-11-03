@@ -1,5 +1,6 @@
 :root {
   color-scheme: light dark;
+  --card-pad: 1.25rem;
   --bg: #f6f5f1;
   --surface: #ffffff;
   --surface-2: #f0efe9;
@@ -15,6 +16,8 @@
   --ok-bg: #e3f3ea;
   --err-bg: #fde8e6;
   --selected: #eef6f2;
+  --label-bg: #f8f4e6;
+  --label-hover: #f0eadb;
   --radius: 12px;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.04);
   --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -37,6 +40,8 @@
     --ok-bg: #16302a;
     --err-bg: #3b1d1b;
     --selected: #1d2b26;
+    --label-bg: #1f1e18;
+    --label-hover: #282620;
     --shadow: none;
   }
 }
@@ -94,7 +99,7 @@ main { max-width: 1240px; margin: 0 auto; padding: 1.5rem 16px 4rem; }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 1.1rem 1.25rem;
+  padding: 1.1rem var(--card-pad);
   margin-bottom: 1.25rem;
 }
 
@@ -124,23 +129,48 @@ main { max-width: 1240px; margin: 0 auto; padding: 1.5rem 16px 4rem; }
 .chart { position: relative; height: 340px; }
 
 /* Tableaux */
-.table-wrap { overflow-x: auto; margin: 0 -1.25rem; padding-right: 1.25rem; }
+.table-wrap { overflow-x: auto; margin: 0 calc(var(--card-pad) * -1); padding-right: var(--card-pad); }
+/* Barre ajoutée par tables.js, sous les seules colonnes qui défilent. Toujours visible
+   (pas de barre flottante) pour montrer ce qui défile. */
+.table-wrap.has-hscroll { scrollbar-width: none; }
+.table-wrap.has-hscroll::-webkit-scrollbar { display: none; }
+.hscroll {
+  overflow-x: auto;
+  margin-right: calc(var(--card-pad) * -1);
+  min-height: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) var(--surface-2);
+}
+.hscroll > div { height: 1px; }
+.hscroll::-webkit-scrollbar { height: 8px; }
+.hscroll::-webkit-scrollbar-track { background: var(--surface-2); border-radius: 4px; }
+.hscroll::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 4px; }
 table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
 .grid th, .grid td { padding: 0.45rem 0.7rem; white-space: nowrap; text-align: right; border-bottom: 1px solid var(--border); }
 .grid thead th { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
 .grid thead th a { color: inherit; text-decoration: none; }
 .grid thead th a:hover { color: var(--ink); }
 .grid th.group { text-align: center; border-bottom: none; padding-bottom: 0; }
-.grid tbody th { text-align: left; font-weight: 500; position: sticky; left: 0; background: var(--surface); z-index: 1; }
-/* Marge gauche de la carte portée par la colonne figée : aucun chiffre ne défile à sa gauche. */
-.grid tbody th, .grid thead tr:first-child th:first-child { padding-left: calc(1.25rem + 0.7rem); }
+.grid tbody th { text-align: left; font-weight: 500; }
+/* Colonne figée, de l'en-tête à la dernière ligne, teintée sable et bordée à droite. Elle
+   porte la marge gauche de la carte : aucun chiffre ne défile à sa gauche. */
+.grid tbody th, .grid thead tr:first-child th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--label-bg);
+  box-shadow: inset -1px 0 var(--border);
+  padding-left: calc(var(--card-pad) + 0.7rem);
+}
+.grid thead tr:first-child th:first-child { z-index: 2; }
 .grid .selected { background: var(--selected); }
 .grid thead th.selected { color: var(--accent); }
 .grid tr.total th, .grid tr.total td { font-weight: 700; border-top: 2px solid var(--border); }
 .grid .metrics th { font-weight: 400; color: var(--muted); font-size: 0.88rem; }
 .grid .metrics td { font-size: 0.88rem; }
 .grid .metrics tr:first-child th, .grid .metrics tr:first-child td { padding-top: 1rem; }
-.grid tbody tr:hover td, .grid tbody tr:hover th { background: var(--surface-2); }
+.grid tbody tr:hover td { background: var(--surface-2); }
+.grid tbody tr:hover th { background: var(--label-hover); }
 .dot { display: inline-block; width: 0.65rem; height: 0.65rem; border-radius: 3px; margin-right: 0.5rem; vertical-align: baseline; }
 .tag { margin-left: 0.5rem; font-size: 0.72rem; padding: 0.05rem 0.4rem; border-radius: 999px; background: var(--ok-bg); color: var(--pos); }
 

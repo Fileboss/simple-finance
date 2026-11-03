@@ -36,6 +36,7 @@ export function Layout(props: { title: string; path: string; children: Child; sc
             </nav>
           </header>
           <main>{props.children}</main>
+          <script src="/static/tables.js" defer />
           {props.scripts}
         </body>
       </html>
