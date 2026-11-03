@@ -180,24 +180,30 @@ export function AccountsPage(props: {
                     Fin de mois
                     <input type="month" name="baseline_month" value={a.baselineMonth ?? ""} {...MONTH_FALLBACK} />
                   </label>
-                  <label>
-                    Performance affichée
-                    <span class="suffix" data-suffix="%">
-                      <input name="baseline_perf" inputmode="decimal" placeholder="ex. 15" value={a.baselinePerf === null ? "" : String(a.baselinePerf).replace(".", ",")} />
-                    </span>
-                  </label>
-                  <span class="or">ou</span>
-                  <label>
-                    Capital investi
-                    <span class="suffix" data-suffix="€">
-                      <input
-                        name="baseline_invested"
-                        inputmode="decimal"
-                        placeholder="ex. 2000,00"
-                        value={a.baselinePerf === null && a.baselineInvested !== null ? centsToInput(a.baselineInvested) : ""}
-                      />
-                    </span>
-                  </label>
+                  {/* Le « ou » ne porte que sur ces deux champs : ils sont regroupés à part du mois. */}
+                  <div class="either" role="group" aria-label="Au choix : performance affichée ou capital investi">
+                    <span class="either-title">Au choix</span>
+                    <div class="either-fields">
+                      <label>
+                        Performance affichée
+                        <span class="suffix" data-suffix="%">
+                          <input name="baseline_perf" inputmode="decimal" placeholder="ex. 15" value={a.baselinePerf === null ? "" : String(a.baselinePerf).replace(".", ",")} />
+                        </span>
+                      </label>
+                      <span class="or">ou</span>
+                      <label>
+                        Capital investi
+                        <span class="suffix" data-suffix="€">
+                          <input
+                            name="baseline_invested"
+                            inputmode="decimal"
+                            placeholder="ex. 2000,00"
+                            value={a.baselinePerf === null && a.baselineInvested !== null ? centsToInput(a.baselineInvested) : ""}
+                          />
+                        </span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
                 <p class="hint">
                   {a.baselineMonth && a.baselineInvested !== null ? (
