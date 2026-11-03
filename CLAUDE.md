@@ -57,6 +57,12 @@ The account list must be editable: accounts can be added and closed.
 
 The app must stay **lightweight yet pleasant to use**. Keep the footprint minimal (one container, few dependencies), but don't settle for a bare UI: the forms, tables and charts should be comfortable for monthly use.
 
+## Backlog
+
+`BACKLOG.md` (in French) lists upcoming changes: « À faire » (most important first), « En cours », « Fait » (with the version that shipped each entry).
+
+Why: the app is now stable and in daily use, so changes are no longer urgent. The user notes them as they come up, and they are handled **in batches**. Each release then bundles several changes, which makes version bumps fewer, quicker to deploy and more meaningful. When the user mentions an idea or a non-urgent change, add it to the backlog instead of implementing it right away, unless they ask for it now.
+
 ## Hosting
 
 Deployment lives in a separate, private infrastructure repo. This repo only provides the image and the app. The homelab pins the image by version (`:vX.Y.Z`, set through a version variable) and reaches it **only on the tailnet** via `tailscale serve`, which terminates TLS. There is no login for now; one may be added later. Container contract: user `bun` (uid 1000), `DB_PATH=/data/finance.sqlite`, `PORT=3000`, `GET /health`. The ghcr package must stay public so the homelab can pull without logging in. `compose.yaml` here is for local dev only (`build: .`, `./data:/data`).
