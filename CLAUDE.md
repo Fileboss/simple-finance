@@ -10,29 +10,31 @@ A self-hosted dashboard that tracks **monthly account balances** (not transactio
 
 Bun may not be installed on the host. In that case, run it through Docker: `docker run --rm -v "$PWD":/app -w /app oven/bun:1-alpine <cmd>`.
 
-- `bun run dev`: server with watch at http://localhost:3000, DB at `data/finance.sqlite` (override with `DB_PATH`, `PORT`)
+- `bun run dev`: server with watch at http://localhost:3000, DB at `data/finance.sqlite` (override with `DB_PATH`, `PORT`). It sets `INSECURE_COOKIE=1` (no HTTPS locally), and so does `compose.yaml`; never set it in deployment.
 - `bun test`, `bun test test/calc.test.ts`, `bun test -t "<name pattern>"`
 - `bun run typecheck` (tsc; JSX resolves to `hono/jsx` through `tsconfig.json`, so the Docker image must copy that file)
-- `bun run import <export.csv> [--force]`: one-shot history import from the Sheet
+- `bun run import <user> <export.csv> [--force]`: one-shot history import from the Sheet, into that user's accounts
+- `bun run user add <name> | reset <name> | rename <name> <new> | list`: user management, command line only (no sign-up or admin page). `add` and `reset` print a temporary password.
 - `bun run backup <dest>`: dev tool only. It makes a `VACUUM INTO` copy and fails if the DB doesn't exist (`create: false`).
 - `docker build -t simple-finance .` for a local image. CI (`.github/workflows/docker.yml`) runs typecheck and tests, then publishes **amd64-only** images to `ghcr.io/fileboss/simple-finance`. Git tag `vX.Y.Z` → `:vX.Y.Z` and `:X.Y.Z`, the versions the homelab pins. `main` → `:latest` and `:sha-…`, for dev only, never for deployment.
 
 ## Architecture
 
 - `src/calc.ts`: **every calculation**, pure. `compute(accounts, statements)` fills the months between the first and last statement, then returns per-account and total `Point`s. Each account-month has a `State`. `absent` means before the account's first statement, or after its last one if it is closed; the account is left out of the total. `held` means there is a statement. `missing` means no statement between those bounds: the value is unknown, **never 0**. A missing statement makes the total `incomplete`: it shows the partial value, but variation, gain and return are `null` for that month and the next. A statement with `deposits = null` also makes gain, return and invested `null`. Closing an account writes a final statement with value 0 and `deposits = −balance`. An account opened during tracking has a previous value of 0, so its first month's deposits must equal the amount brought in (enforced in the entry form). The views only format these points.
-- `src/store.ts`: `bun:sqlite`, with two tables: `accounts` (with optional `baseline_month` / `baseline_invested`: the starting capital inferred from the broker's displayed performance) and `statements` (PK `month`, `account_id`). Months are `"YYYY-MM"` strings.
+- `src/store.ts`: `bun:sqlite`, with four tables: `users`, `sessions` (only the SHA-256 of the token is stored), `accounts` (owned by a `user_id`, with optional `baseline_month` / `baseline_invested`: the starting capital inferred from the broker's displayed performance) and `statements` (PK `month`, `account_id`; owned through their account). Months are `"YYYY-MM"` strings. `Store` handles users and sessions; `store.forUser(id)` returns a `Ledger`, **the only access to accounts and statements**, with every query limited to that user.
+- `src/auth.ts`: Argon2id through `Bun.password`, password rules, per-account login slowdown (in memory, never a lockout), and `provisionPasswords`, which at server startup gives a temporary password, printed in the logs, to any user without one.
 - `src/sheet.ts`: parses the Sheet's CSV export (account rows, then `Total`, then the `plusvalue` / `janvier` control rows). `checkSheet` recomputes those rows with `compute` and reports any 1-cent difference. `applySheet` imports with `deposits = NULL` and never overwrites deposits already entered. It can also set each account's baseline from a displayed performance entered in the import preview, at that account's last imported month.
-- `src/app.tsx`: Hono routes (`/`, `/saisie`, `/comptes`, `/import`), with post/redirect/get for forms. A middleware rejects cross-site POSTs (`Sec-Fetch-Site`) because there is no login. The app runs behind `tailscale serve` (HTTPS terminated by tailscaled, `Host` is `*.ts.net`): never check `Host`, and never build absolute URLs. Redirects and links stay relative. `src/views/*.tsx`: server-rendered Hono JSX.
+- `src/app.tsx`: Hono routes (`/login`, `/logout`, `/mot-de-passe`, `/`, `/saisie`, `/comptes`, `/import`), with post/redirect/get for forms. A middleware rejects POSTs from another site or another port of the same host (`Sec-Fetch-Site`). Everything except `/health`, `/static` and `/login` needs a session; routes reach data through `c.var.ledger`. While `must_change_password` is set, only `/mot-de-passe` and `/logout` are reachable. The session cookie is `__Host-finance-session`: its name is app-specific because homelab services share one host and cookies aren't isolated by port. The app runs behind `tailscale serve` (HTTPS terminated by tailscaled, `Host` is `*.ts.net`): never check `Host`, and never build absolute URLs. Redirects and links stay relative. `src/views/*.tsx`: server-rendered Hono JSX.
 - `static/`: `style.css` (CSS tokens, light/dark), vendored `chart.umd.min.js`, and `charts.js`, which only renders the JSON that `#chart-data` provides.
 
-The repo is **public**: personal figures stay in `data/` (gitignored, along with `reference.png`, a screenshot of the Sheet). Committed tests use synthetic numbers. `test/sheet.test.ts` also checks the real export when `data/sheet.csv` exists.
+The repo is **public**: personal figures and identifiers (such as usernames) stay in `data/` (gitignored, along with `reference.png`, a screenshot of the Sheet). Committed tests use synthetic numbers. `test/sheet.test.ts` also checks the real export when `data/sheet.csv` exists.
 
 ## Rules from the design
 
 - **Store money as integer cents**, never floats. After a CSV import, the totals and raw changes must match the Sheet exactly.
 - **The server does all the calculations.** It injects chart data into the page as JSON (`<script type="application/json">`), and `static/charts.js` only renders it.
 - **No outbound requests.** The app serves all assets itself (Chart.js, CSS) and must work offline on the tailnet.
-- **Production backups happen on the host** (a systemd script in the infrastructure repo runs `sqlite3 .backup` as the owning uid, then restic). The app's job is to keep the DB as **a single SQLite file** under `/data` (WAL is fine). Schema changes go through in-place migrations (`MIGRATIONS` + `PRAGMA user_version` in `src/store.ts`), never through an extra file.
+- **Production backups happen on the host** (a systemd script in the infrastructure repo runs `sqlite3 .backup` as the owning uid, then restic). The app's job is to keep the DB as **a single SQLite file** under `/data` (WAL is fine). Schema changes go through in-place migrations (`MIGRATIONS` + `PRAGMA user_version` in `src/store.ts`), never through an extra file. Foreign keys stay off during migrations because `DROP TABLE` would otherwise trigger `ON DELETE CASCADE`. The app refuses to start on a DB newer than its code.
 - **Test the calculations** (gain, monthly return, return since January) against figures from the Sheet.
 - Monthly % divides by the previous month's value. The Sheet divides by the current month's value, so its monthly % differ slightly: only € figures must match.
 
@@ -65,7 +67,7 @@ Why: the app is now stable and in daily use, so changes are no longer urgent. Th
 
 ## Hosting
 
-Deployment lives in a separate, private infrastructure repo. This repo only provides the image and the app. The homelab pins the image by version (`:vX.Y.Z`, set through a version variable) and reaches it **only on the tailnet** via `tailscale serve`, which terminates TLS. There is no login for now; one may be added later. Container contract: user `bun` (uid 1000), `DB_PATH=/data/finance.sqlite`, `PORT=3000`, `GET /health`. The ghcr package must stay public so the homelab can pull without logging in. `compose.yaml` here is for local dev only (`build: .`, `./data:/data`).
+Deployment lives in a separate, private infrastructure repo. This repo only provides the image and the app. The homelab pins the image by version (`:vX.Y.Z`, set through a version variable) and reaches it **only on the tailnet** via `tailscale serve`, which terminates TLS (the `Secure` session cookie relies on it). Each user has an account, and their data is private within the app; the DB itself stays in clear on the host and in backups. Container contract: user `bun` (uid 1000), `DB_PATH=/data/finance.sqlite`, `PORT=3000`, `GET /health`. The ghcr package must stay public so the homelab can pull without logging in. `compose.yaml` here is for local dev only (`build: .`, `./data:/data`).
 
 ## Out of scope
 

@@ -5,7 +5,7 @@
 import { compute } from "./calc.ts";
 import { investedFromPerformance, parseCents } from "./money.ts";
 import { monthLabel, parseMonthLabel } from "./months.ts";
-import type { Store } from "./store.ts";
+import type { Ledger } from "./store.ts";
 
 export interface SheetData {
   months: string[];
@@ -148,17 +148,17 @@ export function lastValue(data: SheetData, index: number): { month: string; valu
  * inconnus. baselines (alignées sur data.accounts) fixent le capital de départ
  * au dernier mois importé de chaque compte.
  */
-export function applySheet(store: Store, data: SheetData, baselines: (Baseline | undefined)[] = []): void {
-  store.transaction(() => {
+export function applySheet(ledger: Ledger, data: SheetData, baselines: (Baseline | undefined)[] = []): void {
+  ledger.transaction(() => {
     data.accounts.forEach((a, i) => {
-      const account = store.accountByName(a.name) ?? store.addAccount(a.name);
+      const account = ledger.accountByName(a.name) ?? ledger.addAccount(a.name);
       a.values.forEach((value, k) => {
-        if (value !== null) store.importValue(data.months[k]!, account.id, value);
+        if (value !== null) ledger.importValue(data.months[k]!, account.id, value);
       });
       const b = baselines[i];
       const last = lastValue(data, i);
       if (!b || !last || (b.perf === null && b.invested === null)) return;
-      store.updateAccount({
+      ledger.updateAccount({
         ...account,
         baselineMonth: last.month,
         baselineInvested: b.perf !== null ? investedFromPerformance(last.value, b.perf) : b.invested,

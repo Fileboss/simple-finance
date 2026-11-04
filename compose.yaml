@@ -5,5 +5,8 @@ services:
     build: .
     ports:
       - "127.0.0.1:3000:3000"
+    environment:
+      # Pas de HTTPS en local : cookie de session sans Secure.
+      INSECURE_COOKIE: "1"
     volumes:
       - ./data:/data

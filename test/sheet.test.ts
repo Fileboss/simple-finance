@@ -43,13 +43,14 @@ describe("parseSheet", () => {
 
   test("applySheet : crée les comptes, versements inconnus, garde ceux déjà saisis", () => {
     const store = openStore(":memory:");
-    const epargne = store.addAccount("epargne");
-    store.saveStatement({ month: "2026-02", accountId: epargne.id, value: 1, deposits: 2500 });
-    applySheet(store, data);
-    expect(store.accounts().map((a) => a.name)).toEqual(["epargne", "Actions"]);
-    const feb = store.statementsFor("2026-02");
+    const ledger = store.forUser(store.addUser("test").id);
+    const epargne = ledger.addAccount("epargne");
+    ledger.saveStatement({ month: "2026-02", accountId: epargne.id, value: 1, deposits: 2500 });
+    applySheet(ledger, data);
+    expect(ledger.accounts().map((a) => a.name)).toEqual(["epargne", "Actions"]);
+    const feb = ledger.statementsFor("2026-02");
     expect(feb.get(epargne.id)).toEqual({ month: "2026-02", accountId: epargne.id, value: 110000, deposits: 2500 });
-    expect(store.statementsFor("2025-12").get(epargne.id)?.deposits).toBeNull();
+    expect(ledger.statementsFor("2025-12").get(epargne.id)?.deposits).toBeNull();
   });
 });
 
