@@ -5,9 +5,10 @@ import { monthLabel, shortMonthLabel } from "../months.ts";
 import type { Account } from "../store.ts";
 import { Amount, Dot, Gain, Layout, Na, Notice, Pct, Ret } from "./layout.tsx";
 
-export function EmptyDashboard() {
+export function EmptyDashboard(props: { notice?: string }) {
   return (
     <Layout title="Tableau de bord" path="/">
+      {props.notice && <Notice>{props.notice}</Notice>}
       <section class="empty">
         <h1>Aucun relevé pour l'instant</h1>
         <p>Commence par reprendre l'historique du Sheet, ou saisis directement un premier mois.</p>

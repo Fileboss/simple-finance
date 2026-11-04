@@ -125,6 +125,7 @@ L'app est pensée pour un homelab, avec une configuration de déploiement dans u
 
 - une stack Docker Compose séparée, avec **un seul conteneur léger** (quelques dizaines de Mo de RAM) et pas de base externe ;
 - accessible **sur le tailnet uniquement** (`tailscale serve`), jamais exposée publiquement : les données financières restent à la maison ;
+- **un compte par personne**, avec identifiant et mot de passe : chacun ne voit que ses propres données dans l'app. La base reste en clair sur l'hôte et dans ses sauvegardes : l'administrateur du homelab peut techniquement les lire ;
 - **sauvegarde chaque nuit** de la base SQLite vers le VPS, dans le dépôt restic existant ;
 - une image versionnée, pour la mettre à jour comme les autres services.
 
@@ -165,7 +166,20 @@ bun test -t "depuis janvier"       # tests dont le nom correspond
 bun run typecheck
 ```
 
-Reprise de l'historique, une fois au démarrage : exporter le Sheet en CSV puis soit passer par la page **Import** (prévisualisation et contrôle avant d'importer), soit lancer `bun run import export.csv` (refuse d'importer si un total ou une variation ne retombe pas sur le Sheet). Dans l'aperçu de l'import, on peut indiquer pour chaque compte la performance totale affichée par son appli (ou le capital investi) : l'app en déduit le capital investi de départ au dernier mois importé du compte. Ces valeurs restent modifiables ensuite sur la page **Comptes**, et la commande `bun run import` ne les demande pas.
+Reprise de l'historique, une fois au démarrage : exporter le Sheet en CSV puis soit passer par la page **Import** (prévisualisation et contrôle avant d'importer), soit lancer `bun run import <utilisateur> export.csv` (refuse d'importer si un total ou une variation ne retombe pas sur le Sheet). Dans l'aperçu de l'import, on peut indiquer pour chaque compte la performance totale affichée par son appli (ou le capital investi) : l'app en déduit le capital investi de départ au dernier mois importé du compte. Ces valeurs restent modifiables ensuite sur la page **Comptes**, et la commande `bun run import` ne les demande pas.
+
+Comptes utilisateurs, en ligne de commande uniquement :
+
+```sh
+bun run user add <nom>               # crée un compte, affiche un mot de passe temporaire
+bun run user reset <nom>             # nouveau mot de passe temporaire, sessions révoquées
+bun run user rename <nom> <nouveau>  # change l'identifiant
+bun run user list
+```
+
+Un mot de passe temporaire doit être changé à la première connexion avant d'accéder aux données. Le lien sur l'identifiant, en haut de page, permet de le changer ensuite.
+
+**Mise à jour depuis une version sans comptes** : au premier démarrage, la migration rattache toutes les données à un utilisateur `admin` et son mot de passe temporaire s'affiche dans les logs du conteneur. Il reste à renommer ce compte (`bun run user rename admin <nom>`), à se connecter et à changer le mot de passe. Une fois la base migrée, une image plus ancienne ne doit plus la servir, car elle afficherait tout sans connexion : pour revenir en arrière, il faut restaurer la sauvegarde d'avant la mise à jour.
 
 Les données personnelles restent hors du dépôt (public) : `data/` et `reference.png` sont ignorés par git. Si `data/sheet.csv` existe, `bun test` vérifie aussi l'import sur les vrais chiffres.
 

@@ -1,6 +1,9 @@
+import { getContext } from "hono/context-storage";
 import { html } from "hono/html";
 import type { Child } from "hono/jsx";
+import type { AppEnv } from "../auth.ts";
 import { eur, signedEur, signedPct } from "../money.ts";
+import type { User } from "../store.ts";
 
 const NAV = [
   ["/", "Tableau de bord"],
@@ -10,6 +13,8 @@ const NAV = [
 ] as const;
 
 export function Layout(props: { title: string; path: string; children: Child; scripts?: Child }) {
+  // Absent sur la page de connexion.
+  const user = getContext<AppEnv>().var.user as User | undefined;
   return (
     <>
       {html`<!doctype html>`}
@@ -27,13 +32,27 @@ export function Layout(props: { title: string; path: string; children: Child; sc
               <img src="/static/favicon.svg" alt="" width="22" height="22" />
               Finances
             </a>
-            <nav>
-              {NAV.map(([href, label]) => (
-                <a href={href} aria-current={props.path === href ? "page" : undefined}>
-                  {label}
+            {user && !user.mustChangePassword && (
+              <nav>
+                {NAV.map(([href, label]) => (
+                  <a href={href} aria-current={props.path === href ? "page" : undefined}>
+                    {label}
+                  </a>
+                ))}
+              </nav>
+            )}
+            {user && (
+              <div class="session">
+                <a href="/mot-de-passe" title="Changer le mot de passe">
+                  {user.name}
                 </a>
-              ))}
-            </nav>
+                <form method="post" action="/logout">
+                  <button type="submit" class="secondary">
+                    Déconnexion
+                  </button>
+                </form>
+              </div>
+            )}
           </header>
           <main>{props.children}</main>
           <script src="/static/tables.js" defer />

@@ -106,6 +106,9 @@ h2 { font-size: 1.3rem; margin-bottom: 1.1rem; }
 }
 .topbar nav a:hover, .years a:hover { color: var(--ink); background: var(--surface-2); }
 .topbar nav a[aria-current="page"], .years a[aria-current="page"] { color: var(--ink); background: var(--current); }
+.session { display: flex; align-items: center; gap: 0.75rem; margin-left: auto; flex-shrink: 0; font-size: 0.9rem; }
+.session a { color: var(--muted); }
+.session button { min-height: 36px; padding: 0 0.9rem; font-weight: 400; }
 
 main { max-width: 1180px; margin: 0 auto; padding: 1.75rem 16px 4rem; }
 
@@ -223,6 +226,9 @@ input[type="color"]::-moz-color-swatch { border: 0; border-radius: 50%; }
 ::placeholder { color: var(--faint); opacity: 1; }
 label { display: inline-flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; color: var(--muted); }
 label.check { flex-direction: row; align-items: center; gap: 0.5rem; }
+.auth { display: flex; flex-direction: column; gap: 1rem; max-width: 26rem; margin: 2rem auto; }
+.auth .notice, .auth p { margin: 0; }
+.auth .actions { margin-top: 0.25rem; }
 form.inline { display: flex; align-items: flex-end; gap: 0.75rem; }
 form.inline label { flex-direction: row; align-items: center; gap: 0.5rem; }
 
@@ -291,7 +297,8 @@ summary { cursor: pointer; color: var(--muted); margin-bottom: 0.5rem; }
 
 @media (max-width: 640px) {
   :root { --card-pad: 1.1rem; }
-  .topbar { gap: 0.75rem; }
+  .topbar { gap: 0.25rem 0.75rem; flex-wrap: wrap; }
+  .session { order: -1; width: 100%; justify-content: flex-end; }
   .brand { display: none; }
   .topbar nav a { padding: 0 0.7rem; font-size: 0.95rem; }
   h1 { font-size: 1.6rem; }

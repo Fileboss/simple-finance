@@ -1,12 +1,18 @@
-// Import ponctuel de l'historique : bun run import <export.csv> [--force]
+// Import ponctuel de l'historique : bun run import <utilisateur> <export.csv> [--force]
 import { eur } from "../money.ts";
 import { monthLabel } from "../months.ts";
 import { applySheet, checkSheet, parseSheet } from "../sheet.ts";
 import { openStore } from "../store.ts";
 
-const [path, flag] = process.argv.slice(2);
-if (!path) {
-  console.error("Usage : bun run import <export.csv> [--force]");
+const [userName, path, flag] = process.argv.slice(2);
+if (!userName || !path) {
+  console.error("Usage : bun run import <utilisateur> <export.csv> [--force]");
+  process.exit(1);
+}
+const store = openStore(process.env.DB_PATH ?? "data/finance.sqlite");
+const user = store.userByName(userName);
+if (!user) {
+  console.error(`Compte « ${userName} » introuvable (bun run user add ${userName}).`);
   process.exit(1);
 }
 const data = parseSheet(await Bun.file(path).text());
@@ -21,5 +27,5 @@ if (failed.length > 0 && flag !== "--force") {
   process.exit(1);
 }
 if (checks.length > 0 && failed.length === 0) console.log(`✓ ${checks.length} totaux et variations identiques au Sheet`);
-applySheet(openStore(process.env.DB_PATH ?? "data/finance.sqlite"), data);
+applySheet(store.forUser(user.id), data);
 console.log("Import terminé.");

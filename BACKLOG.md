@@ -12,3 +12,5 @@ Idées et évolutions à venir, de la plus prioritaire à la moins prioritaire. 
 ## En cours
 
 ## Fait
+
+- **Comptes utilisateurs** : connexion par identifiant et mot de passe, données privées par utilisateur, migration de l'instance existante vers un premier compte. (v0.2.0)
