@@ -115,18 +115,13 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
           label="Vs mois précédent"
           main={<Amount cents={t.variation} signed why="Pas de mois précédent" />}
           sub={<Pct ratio={t.variationPct} />}
-          detail={<Split invested={t.deposits} gained={t.gain} signed />}
+          detail={<Split invested={t.deposits} gained={t.gain} pct={t.ret} signed />}
         />
         <Kpi
           label="Depuis janvier"
           main={<Amount cents={t.ytdVariation} signed why="Pas de relevé de janvier" />}
           sub={<Pct ratio={t.ytdVariationPct} />}
-          detail={<Split invested={t.ytdDeposits} gained={t.ytdGain} signed />}
-        />
-        <Kpi
-          label="Gain du mois (hors versements)"
-          main={<Gain cents={t.gain} />}
-          sub={t.gain === null ? <span class="muted">versements inconnus</span> : <Ret ratio={t.ret} />}
+          detail={<Split invested={t.ytdDeposits} gained={t.ytdGain} pct={t.ytdRet} signed />}
         />
       </section>
 

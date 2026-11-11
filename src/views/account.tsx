@@ -15,10 +15,23 @@ export function AccountPerformance(props: { account: Account; points: Point[]; y
   const last = recent.find((p) => p.state === "held");
   const thisYear = last && props.years.find((y) => y.year === last.month.slice(0, 4));
 
+  // Chaque barre sépare le capital investi de la plus-value (ou de la perte, au-dessus
+  // de la valeur). Sans capital investi connu, la valeur reste d'un seul bloc.
+  const euros = (f: (p: Point) => number | null) =>
+    points.map((p) => {
+      const x = p.value === null ? null : f(p);
+      return x ? x / 100 : null;
+    });
   const chart = {
     labels: points.map((p) => shortMonthLabel(p.month)),
-    accounts: [{ name: account.name, color: account.color, values: points.map((p) => (p.value === null ? null : p.value / 100)) }],
-    invested: points.map((p) => (p.invested === null ? null : p.invested / 100)),
+    accounts: [
+      { name: "Investi", color: account.color, values: euros((p) => (p.invested === null ? null : Math.min(p.invested, p.value!))) },
+      { name: "Gagné", color: "--pos", values: euros((p) => (p.totalGain === null ? null : Math.max(p.totalGain, 0))) },
+      { name: "Perdu", color: "--neg", values: euros((p) => (p.totalGain === null ? null : Math.max(-p.totalGain, 0))) },
+      { name: "Capital investi inconnu", color: "--faint", values: euros((p) => (p.invested === null ? p.value : null)) },
+    ].filter((a) => a.values.some((v) => v !== null)),
+    invested: points.map(() => null),
+    totals: points.map((p) => (p.value === null ? null : p.value / 100)),
   };
 
   return (

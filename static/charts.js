@@ -19,7 +19,8 @@
     type: "bar",
     label: a.name,
     data: a.values,
-    backgroundColor: a.color,
+    // Une couleur commençant par « -- » est un jeton CSS (thème clair ou sombre).
+    backgroundColor: a.color.startsWith("--") ? token(a.color) : a.color,
     stack: "valeur",
     borderRadius: 2,
     maxBarThickness: 56,
@@ -57,6 +58,11 @@
           callbacks: {
             label: (ctx) => (ctx.parsed.y === null ? null : ` ${ctx.dataset.label} : ${eur.format(ctx.parsed.y)}`),
             footer: (items) => {
+              // Total fourni par le serveur quand les barres ne s'additionnent pas (perte empilée).
+              if (data.totals) {
+                const t = data.totals[items[0]?.dataIndex];
+                return t == null ? "" : `Valeur : ${eur.format(t)}`;
+              }
               const bars = items.filter((i) => i.dataset.type === "bar");
               return bars.length ? `Total : ${eur.format(bars.reduce((s, i) => s + (i.parsed.y ?? 0), 0))}` : "";
             },
