@@ -163,3 +163,24 @@ test("derrière tailscale serve : Host en *.ts.net accepté, redirections relati
   expect(res.status).toBe(303);
   expect(res.headers.get("location")).toBe("/?month=2026-10&saved=1");
 });
+
+test("performance d'un compte : globale, annuelle et mois par mois", async () => {
+  const actions = ledger.addAccount("Actions");
+  ledger.updateAccount({ ...actions, baselineMonth: "2025-12", baselineInvested: 90000 });
+  ledger.saveStatement({ month: "2025-12", accountId: actions.id, value: 100000, deposits: null });
+  ledger.saveStatement({ month: "2026-01", accountId: actions.id, value: 110000, deposits: 5000 });
+  ledger.saveStatement({ month: "2026-02", accountId: actions.id, value: 112000, deposits: null });
+  const html = await (await get(`/comptes/${actions.id}`)).text();
+  expect(html).toContain("Performance annuelle");
+  expect(html).toContain("Mois par mois");
+  // Fin février : investi inconnu (versements de février inconnus), donc un tiret.
+  expect(html).toMatch(/investi <span class="na"/);
+  // Le tableau de bord mène à la page du compte.
+  expect(await (await get("/")).text()).toContain(`href="/comptes/${actions.id}"`);
+});
+
+test("performance d'un compte : celui d'un autre utilisateur est introuvable", async () => {
+  const other = store.forUser(store.addUser("autre", "empreinte-factice", false).id);
+  const hidden = other.addAccount("Secret");
+  expect((await get(`/comptes/${hidden.id}`)).status).toBe(404);
+});

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { compute, type AccountInput, type StatementInput } from "../src/calc.ts";
+import { compute, yearly, type AccountInput, type StatementInput } from "../src/calc.ts";
 
 // A : suivi depuis décembre, capital de départ connu fin janvier.
 // B : ouvert en février pendant le suivi.
@@ -42,6 +42,8 @@ describe("compute", () => {
     expect(a[3]).toMatchObject({ ytdVariation: 5000, ytdGain: 15000 });
     expect(a[3]!.ytdVariationPct).toBeCloseTo(5000 / 110000, 12);
     expect(a[3]!.ytdRet).toBeCloseTo((1 + 10000 / 110000) * (1 + 5000 / 115000) - 1, 12);
+    // Variation depuis janvier = versements + gain.
+    expect(a.map((p) => p.ytdDeposits)).toEqual([null, null, 0, -10000]);
   });
 
   test("compte ouvert en cours de suivi : inexistant avant, valeur précédente 0 au premier mois", () => {
@@ -56,6 +58,22 @@ describe("compute", () => {
     expect(a[3]!.totalGain).toBe(20000);
     expect(b.map((p) => p.invested)).toEqual([null, null, 50000, 50000]);
     expect(b[3]!.totalGain).toBe(1000);
+    expect(a[3]!.totalGainPct).toBeCloseTo(20000 / 95000, 12);
+    expect(a[0]!.totalGainPct).toBeNull();
+  });
+
+  test("performance annuelle : gains de janvier à décembre, premier mois suivi exclu", () => {
+    // 2025 n'a que décembre, le premier mois suivi : aucune année à calculer.
+    const [y2026, ...rest] = yearly(a);
+    expect(rest).toEqual([]);
+    // 2026 : contrairement à « depuis janvier », le gain de janvier compte.
+    expect(y2026).toMatchObject({ year: "2026", from: "2026-01", to: "2026-03", variation: 15000, deposits: -5000, gain: 20000 });
+    expect(y2026!.ret).toBeCloseTo((1 + a[1]!.ret!) * (1 + a[2]!.ret!) * (1 + a[3]!.ret!) - 1, 12);
+    // B, ouvert en février : les mois où il n'existe pas sont neutres.
+    const [yb, ...more] = yearly(b);
+    expect(more).toEqual([]);
+    expect(yb).toMatchObject({ year: "2026", from: "2026-02", to: "2026-03", variation: 51000, deposits: 50000, gain: 1000 });
+    expect(yb!.ret).toBeCloseTo(b[3]!.ret!, 12);
   });
 
   test("total : sommes, puis mêmes formules", () => {

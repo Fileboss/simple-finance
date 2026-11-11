@@ -84,8 +84,24 @@ export function Pct(props: { ratio: number | null; why?: string }) {
   return <span class={tone(props.ratio)}>{signedPct(props.ratio)}</span>;
 }
 
-export const Gain = (props: { cents: number | null }) => <Amount cents={props.cents} signed why={UNKNOWN_DEPOSITS} />;
+export const Gain = (props: { cents: number | null; why?: string }) => (
+  <Amount cents={props.cents} signed why={props.why ?? UNKNOWN_DEPOSITS} />
+);
 export const Ret = (props: { ratio: number | null }) => <Pct ratio={props.ratio} why={UNKNOWN_DEPOSITS} />;
+
+/** Détail d'un montant : la part investie (versements) et la part gagnée. Tiret si inconnue. */
+export function Split(props: { invested: number | null; gained: number | null; signed?: boolean; why?: string }) {
+  return (
+    <span class="split">
+      <span>
+        investi <Amount cents={props.invested} signed={props.signed} why={props.why ?? "Versements inconnus"} />
+      </span>
+      <span>
+        gagné <Gain cents={props.gained} why={props.why} />
+      </span>
+    </span>
+  );
+}
 
 export const Dot = (props: { color: string }) => <span class="dot" style={`background:${props.color}`} />;
 

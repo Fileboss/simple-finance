@@ -3,12 +3,13 @@ import { serveStatic } from "hono/bun";
 import { contextStorage } from "hono/context-storage";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { hashPassword, loginThrottle, passwordError, verifyPassword, type AppEnv } from "./auth.ts";
-import { compute } from "./calc.ts";
+import { compute, yearly } from "./calc.ts";
 import { centsToInput, eur, investedFromPerformance, parseCents, parsePercent } from "./money.ts";
 import { addMonths, currentMonth, isMonth, monthLabel } from "./months.ts";
 import { applySheet, checkSheet, parseSheet, type Baseline } from "./sheet.ts";
 import { SESSION_MAX_MS, type Account, type Ledger, type Store } from "./store.ts";
 import { LoginForm, PasswordForm } from "./views/auth.tsx";
+import { AccountPerformance } from "./views/account.tsx";
 import { Dashboard, EmptyDashboard } from "./views/dashboard.tsx";
 import { AccountsPage, EntryForm, ImportForm, ImportPreview, type EntryRow, type ImportInput } from "./views/forms.tsx";
 
@@ -272,6 +273,15 @@ export function createApp(store: Store, options: { secureCookie?: boolean } = {}
     if (ledger.accountByName(name)) return c.html(accountsPage(ledger, { error: `Le compte « ${name} » existe déjà.` }), 400);
     ledger.addAccount(name, validColor(color) ? color : undefined);
     return c.redirect("/comptes", 303);
+  });
+
+  // Performance d'un compte : seul ce compte est affiché, mais le calcul reprend tous les mois suivis.
+  app.get("/comptes/:id", (c) => {
+    const ledger = c.var.ledger;
+    const account = ledger.account(Number(c.req.param("id")));
+    if (!account) return c.notFound();
+    const points = compute(ledger.accounts(), ledger.statements()).byAccount.get(account.id) ?? [];
+    return c.html(<AccountPerformance account={account} points={points} years={yearly(points)} />);
   });
 
   app.post("/comptes/:id", async (c) => {

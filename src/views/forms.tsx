@@ -156,7 +156,7 @@ export function AccountsPage(props: {
         {props.accounts.map((a) => {
           const baseValue = a.baselineMonth ? props.values.get(`${a.baselineMonth}:${a.id}`) : undefined;
           return (
-            <form method="post" action={`/comptes/${a.id}`} class={`card account${a.closed ? " closed" : ""}`}>
+            <form method="post" action={`/comptes/${a.id}`} id={`compte-${a.id}`} class={`card account${a.closed ? " closed" : ""}`}>
               <div class="account-head">
                 <input type="color" name="color" value={a.color} aria-label="Couleur" />
                 <input name="name" value={a.name} required aria-label="Nom" class="account-name" />
@@ -217,6 +217,7 @@ export function AccountsPage(props: {
                 </p>
               </fieldset>
               <p class="actions">
+                <a href={`/comptes/${a.id}`}>Voir la performance</a>
                 <button type="submit" class="secondary">
                   Enregistrer
                 </button>
