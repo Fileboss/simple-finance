@@ -3,7 +3,7 @@ import type { Computed, Point } from "../calc.ts";
 import { eur, signedEur } from "../money.ts";
 import { monthLabel, shortMonthLabel } from "../months.ts";
 import type { Account } from "../store.ts";
-import { Amount, Dot, Gain, Layout, Na, Notice, Pct, Ret } from "./layout.tsx";
+import { Amount, Dot, Gain, Layout, Na, Notice, Pct, Ret, Split } from "./layout.tsx";
 
 export function EmptyDashboard(props: { notice?: string }) {
   return (
@@ -103,16 +103,19 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
               </span>
             )
           }
+          detail={<Split invested={t.invested} gained={t.totalGain} why={UNKNOWN_INVESTED} />}
         />
         <Kpi
           label="Vs mois précédent"
           main={<Amount cents={t.variation} signed why="Pas de mois précédent" />}
           sub={<Pct ratio={t.variationPct} />}
+          detail={<Split invested={t.deposits} gained={t.gain} signed />}
         />
         <Kpi
           label="Depuis janvier"
           main={<Amount cents={t.ytdVariation} signed why="Pas de relevé de janvier" />}
           sub={<Pct ratio={t.ytdVariationPct} />}
+          detail={<Split invested={t.ytdDeposits} gained={t.ytdGain} signed />}
         />
         <Kpi
           label="Gain du mois (hors versements)"
@@ -121,14 +124,16 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
         />
         <Kpi
           label="Plus-value totale"
-          main={<Gain cents={t.totalGain} />}
+          main={<Gain cents={t.totalGain} why={UNKNOWN_INVESTED} />}
           sub={
             t.invested === null ? (
               <span class="muted">
                 capital investi inconnu · <a href="/comptes">le renseigner</a>
               </span>
             ) : (
-              <span class="muted">sur {eur(t.invested)} investis</span>
+              <>
+                <Pct ratio={t.totalGainPct} /> <span class="muted">sur {eur(t.invested)} investis</span>
+              </>
             )
           }
         />
@@ -143,7 +148,7 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
 
       <section class="card">
         <h2>Valorisation par mois</h2>
-        <div class="table-wrap">
+        <div class="table-wrap" data-scroll="end">
           <table class="grid">
             <thead>
               <tr>
@@ -159,8 +164,7 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
               {shown.map((a) => (
                 <tr>
                   <th scope="row">
-                    <Dot color={a.color} />
-                    {a.name}
+                    <AccountLink account={a} />
                   </th>
                   {view.map((m) => {
                     const p = at(data.byAccount.get(a.id)!, m);
@@ -184,10 +188,12 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
             <tbody class="metrics">
               {totalRow("Variation", (p) => <Amount cents={p.variation} signed />)}
               {totalRow("Variation %", (p) => <Pct ratio={p.variationPct} />)}
+              {totalRow("Versements", (p) => <Deposits cents={p.deposits} />)}
               {totalRow("Gain hors versements", (p) => <Gain cents={p.gain} />)}
               {totalRow("Rendement", (p) => <Ret ratio={p.ret} />)}
               {totalRow("Variation depuis janvier", (p) => <Amount cents={p.ytdVariation} signed />)}
               {totalRow("Variation depuis janvier %", (p) => <Pct ratio={p.ytdVariationPct} />)}
+              {totalRow("Versements depuis janvier", (p) => <Deposits cents={p.ytdDeposits} />)}
               {totalRow("Gain depuis janvier", (p) => <Gain cents={p.ytdGain} />)}
               {totalRow("Rendement depuis janvier", (p) => <Ret ratio={p.ytdRet} />)}
             </tbody>
@@ -207,10 +213,12 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
                 <th colspan={4} class="group">
                   Vs mois précédent
                 </th>
-                <th colspan={4} class="group">
+                <th colspan={5} class="group">
                   Depuis janvier
                 </th>
-                <th rowspan={2}>Plus-value totale</th>
+                <th colspan={3} class="group">
+                  Depuis le départ
+                </th>
               </tr>
               <tr>
                 <th>Variation</th>
@@ -219,13 +227,17 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
                 <th>Rendement</th>
                 <th>Variation</th>
                 <th>%</th>
+                <th>Versements</th>
                 <th>Gain</th>
                 <th>Rendement</th>
+                <th>Investi</th>
+                <th>Plus-value</th>
+                <th>%</th>
               </tr>
             </thead>
             <tbody>
               {shown.filter((a) => at(data.byAccount.get(a.id)!, month).state !== "absent").map((a) => (
-                <DetailRow label={<><Dot color={a.color} />{a.name}</>} p={at(data.byAccount.get(a.id)!, month)} />
+                <DetailRow label={<AccountLink account={a} />} p={at(data.byAccount.get(a.id)!, month)} />
               ))}
               <DetailRow label="Total" p={t} total />
             </tbody>
@@ -234,7 +246,7 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
         <p class="hint">
           « Variation » compare les valeurs brutes. « Gain » retire les versements du mois, et « Rendement » est pondéré par
           le temps (rendements mensuels chaînés). Un tiret signale un chiffre non disponible, par exemple parce que les
-          versements du mois sont inconnus.
+          versements du mois sont inconnus. Le nom d'un compte mène à sa performance.
         </p>
       </section>
     </Layout>
@@ -242,7 +254,7 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
 }
 
 /** Valeur d'un compte : relevé, relevé manquant (à saisir) ou compte inexistant ce mois-là. */
-function AccountValue(props: { p: Point }) {
+export function AccountValue(props: { p: Point }) {
   const { p } = props;
   if (p.state === "missing")
     return (
@@ -264,15 +276,28 @@ function TotalValue(props: { p: Point }) {
   );
 }
 
-function Kpi(props: { label: string; main: Child; sub?: Child }) {
+const UNKNOWN_INVESTED = "Capital investi inconnu";
+
+export function Kpi(props: { label: string; main: Child; sub?: Child; detail?: Child }) {
   return (
     <div class="kpi">
       <span class="kpi-label">{props.label}</span>
       <strong class="kpi-main">{props.main}</strong>
       {props.sub && <span class="kpi-sub">{props.sub}</span>}
+      {props.detail && <span class="kpi-detail">{props.detail}</span>}
     </div>
   );
 }
+
+export const AccountLink = (props: { account: Account }) => (
+  <a class="account-link" href={`/comptes/${props.account.id}`}>
+    <Dot color={props.account.color} />
+    {props.account.name}
+  </a>
+);
+
+export const Deposits = (props: { cents: number | null }) =>
+  props.cents === null ? <Na why="Versements inconnus" /> : props.cents === 0 ? <>0</> : <>{signedEur(props.cents)}</>;
 
 function DetailRow(props: { label: Child; p: Point; total?: boolean }) {
   const { p } = props;
@@ -280,16 +305,19 @@ function DetailRow(props: { label: Child; p: Point; total?: boolean }) {
     <tr class={props.total ? "total" : undefined}>
       <th scope="row">{props.label}</th>
       <td>{props.total ? <TotalValue p={p} /> : <AccountValue p={p} />}</td>
-      <td>{p.deposits === null ? <Na why="Versements inconnus" /> : p.deposits === 0 ? "0" : signedEur(p.deposits)}</td>
+      <td><Deposits cents={p.deposits} /></td>
       <td><Amount cents={p.variation} signed /></td>
       <td><Pct ratio={p.variationPct} /></td>
       <td><Gain cents={p.gain} /></td>
       <td><Ret ratio={p.ret} /></td>
       <td><Amount cents={p.ytdVariation} signed /></td>
       <td><Pct ratio={p.ytdVariationPct} /></td>
+      <td><Deposits cents={p.ytdDeposits} /></td>
       <td><Gain cents={p.ytdGain} /></td>
       <td><Ret ratio={p.ytdRet} /></td>
-      <td><Amount cents={p.totalGain} signed why="Capital investi inconnu" /></td>
+      <td><Amount cents={p.invested} why={UNKNOWN_INVESTED} /></td>
+      <td><Gain cents={p.totalGain} why={UNKNOWN_INVESTED} /></td>
+      <td><Pct ratio={p.totalGainPct} why={UNKNOWN_INVESTED} /></td>
     </tr>
   );
 }

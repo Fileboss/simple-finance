@@ -115,7 +115,9 @@ Les variations mensuelles en % diffèrent légèrement : le Sheet divise la vari
 ## Interface
 
 - **Saisie mensuelle** : un formulaire avec, pour chaque compte, sa valeur et ses versements du mois.
-- **Tableau** : pour chaque compte et pour le total, la valeur, la variation et le gain vs le mois précédent, la variation et le gain depuis janvier, en € et en %.
+- **Indicateurs** : chaque montant (valeur totale, variation du mois, variation depuis janvier) est détaillé en part investie (versements) et part gagnée, avec un tiret quand l'une des deux est inconnue.
+- **Tableau** : pour chaque compte et pour le total, la valeur, la variation et le gain vs le mois précédent, la variation et le gain depuis janvier, en € et en %. Les tableaux par mois s'ouvrent sur les mois les plus récents.
+- **Page d'un compte** : sa plus-value totale (€ et %), sa performance par année civile hors versements (gain de janvier compris, rendements mensuels chaînés), et mois par mois le gain et le rendement à côté des versements.
 - **Graphique** : barres empilées par compte et par mois (comme le Sheet), et éventuellement une courbe des versements cumulés pour voir la part des gains.
 - **Import CSV** pour la reprise de l'historique.
 

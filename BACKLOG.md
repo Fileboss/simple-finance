@@ -4,14 +4,11 @@ Idées et évolutions à venir, de la plus prioritaire à la moins prioritaire. 
 
 ## À faire
 
-- **Performance par compte bancaire** : cliquer sur un compte ouvre sa page, avec la performance du compte seulement, sans le détail des lignes (actions, fonds…).
-  - **Performance globale** : plus-value totale en € et en %, à partir du capital investi et de la valeur actuelle.
-  - **Mois par mois** : la performance de chaque mois, hors versements (gain et rendement), et à côté les versements du mois, pour voir les deux séparément.
-  - **Performance annuelle sans versement** : calcule le montant et le % de gains réalisés hors versement pour analyser la performanec annuelle des placements
-- **Tableaux calés à droite à l'ouverture** : les tableaux qui défilent s'ouvrent sur les mois les plus récents, barre de défilement déjà tout à droite.
-
 ## En cours
 
 ## Fait
 
+- **Détail investi / gagné des indicateurs** : valeur totale, variation du mois et variation depuis janvier séparent la part investie de la part gagnée (tiret si inconnue) ; plus-value totale en %. (v0.3.0)
+- **Performance par compte** : page d'un compte (lien depuis le tableau de bord et la page Comptes) avec plus-value totale en € et en %, performance annuelle hors versements, et mois par mois gain, rendement et versements. (v0.3.0)
+- **Tableaux calés à droite à l'ouverture** : le tableau par mois s'ouvre sur les mois les plus récents (ou sur le mois sélectionné). (v0.3.0)
 - **Comptes utilisateurs** : connexion par identifiant et mot de passe, données privées par utilisateur, migration de l'instance existante vers un premier compte. (v0.2.0)

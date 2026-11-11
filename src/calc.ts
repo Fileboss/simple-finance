@@ -42,12 +42,16 @@ export interface Point {
   ret: number | null;
   ytdVariation: number | null;
   ytdVariationPct: number | null;
+  /** Versements de février au mois. */
+  ytdDeposits: number | null;
   ytdGain: number | null;
   ytdRet: number | null;
   /** Capital investi cumulé (versements depuis le départ). */
   invested: number | null;
   /** Plus-value cumulée : valeur − capital investi. */
   totalGain: number | null;
+  /** Plus-value cumulée rapportée au capital investi. */
+  totalGainPct: number | null;
 }
 
 export interface Computed {
@@ -152,18 +156,19 @@ function series(months: string[], lane: Lane): Point[] {
 
     // Depuis janvier : référence = relevé de janvier de l'année du mois.
     const jan = i - (Number(month.slice(5)) - 1);
-    let ytdVariation = null, ytdVariationPct = null, ytdGain = null, ytdRet = null;
+    let ytdVariation = null, ytdVariationPct = null, ytdDeposits = null, ytdGain = null, ytdRet = null;
     if (jan >= 0 && i > jan) {
       const ref = start(jan);
       ytdVariation = v === null || ref === null ? null : v - ref;
       ytdVariationPct = ytdVariation !== null && ref ? ytdVariation / ref : null;
-      const ds = sumOrNull(deposits.slice(jan + 1, i + 1));
-      ytdGain = ytdVariation === null || ds === null ? null : ytdVariation - ds;
+      ytdDeposits = sumOrNull(deposits.slice(jan + 1, i + 1));
+      ytdGain = ytdVariation === null || ytdDeposits === null ? null : ytdVariation - ytdDeposits;
       ytdRet = rets.slice(jan + 1, i + 1).reduce<number | null>((acc, r) => (acc === null || r === null ? null : acc * (1 + r)), 1);
       if (ytdRet !== null) ytdRet -= 1;
     }
 
     const inv = lane.invested[i]!;
+    const totalGain = inv === null || v === null ? null : v - inv;
     const point: Point = {
       month,
       state: state[i]!,
@@ -176,10 +181,12 @@ function series(months: string[], lane: Lane): Point[] {
       ret,
       ytdVariation,
       ytdVariationPct,
+      ytdDeposits,
       ytdGain,
       ytdRet,
       invested: inv,
-      totalGain: inv === null || v === null ? null : v - inv,
+      totalGain,
+      totalGainPct: totalGain !== null && inv! > 0 ? totalGain / inv! : null,
     };
     return state[i] === "absent" ? { ...point, ...EMPTY, deposits: null } : point;
   });
@@ -193,11 +200,51 @@ const EMPTY = {
   ret: null,
   ytdVariation: null,
   ytdVariationPct: null,
+  ytdDeposits: null,
   ytdGain: null,
   ytdRet: null,
   invested: null,
   totalGain: null,
+  totalGainPct: null,
 };
+
+/** Performance d'une année civile, hors versements. null = non disponible. */
+export interface YearPoint {
+  year: string;
+  /** Mois couverts : le premier mois suivi n'a pas de mois précédent, il est exclu. */
+  from: string;
+  to: string;
+  variation: number | null;
+  deposits: number | null;
+  /** Somme des gains mensuels : fin d'année − fin de l'année précédente − versements. */
+  gain: number | null;
+  /** Rendements mensuels chaînés de janvier à décembre (pondéré par le temps). */
+  ret: number | null;
+}
+
+/**
+ * Performance annuelle d'une série (compte ou total), de la plus récente à la plus
+ * ancienne. Contrairement à « depuis janvier », le gain de janvier est compté. Un
+ * mois inconnu rend l'année indisponible ; un mois où le compte n'existe pas est neutre.
+ */
+export function yearly(points: Point[]): YearPoint[] {
+  const years = new Map<string, YearPoint>();
+  for (const [i, p] of points.entries()) {
+    if (i === 0 || p.state === "absent") continue;
+    const year = p.month.slice(0, 4);
+    const y = years.get(year);
+    if (!y) {
+      years.set(year, { year, from: p.month, to: p.month, variation: p.variation, deposits: p.deposits, gain: p.gain, ret: p.ret });
+      continue;
+    }
+    y.to = p.month;
+    y.variation = sumOrNull([y.variation, p.variation]);
+    y.deposits = sumOrNull([y.deposits, p.deposits]);
+    y.gain = sumOrNull([y.gain, p.gain]);
+    y.ret = y.ret === null || p.ret === null ? null : (1 + y.ret) * (1 + p.ret) - 1;
+  }
+  return [...years.values()].reverse();
+}
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
