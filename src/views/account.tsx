@@ -1,9 +1,8 @@
 import type { Point, YearPoint } from "../calc.ts";
-import { eur } from "../money.ts";
 import { monthLabel, shortMonthLabel } from "../months.ts";
 import type { Account } from "../store.ts";
 import { AccountValue, Deposits, Kpi } from "./dashboard.tsx";
-import { Amount, Dot, Gain, Layout, Pct, Ret, Split } from "./layout.tsx";
+import { Amount, Dot, Gain, Layout, Ret, Split } from "./layout.tsx";
 
 const UNKNOWN_INVESTED = "Capital investi inconnu";
 
@@ -62,22 +61,14 @@ export function AccountPerformance(props: { account: Account; points: Point[]; y
             <Kpi
               label="Valeur"
               main={<Amount cents={last.value} />}
-              detail={<Split invested={last.invested} gained={last.totalGain} why={UNKNOWN_INVESTED} />}
-            />
-            <Kpi
-              label="Plus-value totale"
-              main={<Gain cents={last.totalGain} why={UNKNOWN_INVESTED} />}
               sub={
-                last.invested === null ? (
+                last.invested === null && (
                   <span class="muted">
                     capital investi inconnu · <a href={`/comptes#compte-${account.id}`}>le renseigner</a>
                   </span>
-                ) : (
-                  <>
-                    <Pct ratio={last.totalGainPct} /> <span class="muted">sur {eur(last.invested)} investis</span>
-                  </>
                 )
               }
+              detail={<Split invested={last.invested} gained={last.totalGain} pct={last.totalGainPct} why={UNKNOWN_INVESTED} />}
             />
             {thisYear && (
               <Kpi

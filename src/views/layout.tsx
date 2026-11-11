@@ -90,7 +90,7 @@ export const Gain = (props: { cents: number | null; why?: string }) => (
 export const Ret = (props: { ratio: number | null }) => <Pct ratio={props.ratio} why={UNKNOWN_DEPOSITS} />;
 
 /** Détail d'un montant : la part investie (versements) et la part gagnée. Tiret si inconnue. */
-export function Split(props: { invested: number | null; gained: number | null; signed?: boolean; why?: string }) {
+export function Split(props: { invested: number | null; gained: number | null; pct?: number | null; signed?: boolean; why?: string }) {
   return (
     <span class="split">
       <span>
@@ -98,6 +98,12 @@ export function Split(props: { invested: number | null; gained: number | null; s
       </span>
       <span>
         gagné <Gain cents={props.gained} why={props.why} />
+        {props.pct != null && (
+          <>
+            {" "}
+            (<Pct ratio={props.pct} />)
+          </>
+        )}
       </span>
     </span>
   );

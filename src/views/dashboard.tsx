@@ -97,13 +97,19 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
           label="Valeur totale"
           main={<TotalValue p={t} />}
           sub={
-            missing.length > 0 && (
+            missing.length > 0 ? (
               <span class="warn-text">
                 incomplet : <a href={`/saisie?month=${month}`}>{missing.map((a) => a.name).join(", ")}</a> sans relevé
               </span>
+            ) : (
+              t.invested === null && (
+                <span class="muted">
+                  capital investi inconnu · <a href="/comptes">le renseigner</a>
+                </span>
+              )
             )
           }
-          detail={<Split invested={t.invested} gained={t.totalGain} why={UNKNOWN_INVESTED} />}
+          detail={<Split invested={t.invested} gained={t.totalGain} pct={t.totalGainPct} why={UNKNOWN_INVESTED} />}
         />
         <Kpi
           label="Vs mois précédent"
@@ -121,21 +127,6 @@ export function Dashboard(props: { accounts: Account[]; data: Computed; month: s
           label="Gain du mois (hors versements)"
           main={<Gain cents={t.gain} />}
           sub={t.gain === null ? <span class="muted">versements inconnus</span> : <Ret ratio={t.ret} />}
-        />
-        <Kpi
-          label="Plus-value totale"
-          main={<Gain cents={t.totalGain} why={UNKNOWN_INVESTED} />}
-          sub={
-            t.invested === null ? (
-              <span class="muted">
-                capital investi inconnu · <a href="/comptes">le renseigner</a>
-              </span>
-            ) : (
-              <>
-                <Pct ratio={t.totalGainPct} /> <span class="muted">sur {eur(t.invested)} investis</span>
-              </>
-            )
-          }
         />
       </section>
 
